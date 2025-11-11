@@ -444,6 +444,8 @@ class cTextExpansionFillInDlg(wxgTextExpansionFillInDlg.wxgTextExpansionFillInDl
 		wxgTextExpansionFillInDlg.wxgTextExpansionFillInDlg.__init__(self, *args, **kwds)
 
 		self.__expansion = None
+		self.__left_splitter = ''
+		self.__right_splitter = ''
 		self.__init_ui()
 	#---------------------------------------------
 	def __init_ui(self):
@@ -680,10 +682,11 @@ Summe   Rate großer Blutungen
 Bewertung: Summe = $[Summe ausrechnen und bewerten]$"""
 
 		#app = 
-		wx.PyWidgetTester(size = (600, 600))
+#		wx.PyWidgetTester(size = (600, 600))
 		dlg = cTextExpansionFillInDlg(None, -1)
 		dlg.expansion = expansion
 		dlg.ShowModal()
 		#app.MainLoop()
+
 	#----------------------------------------
 	test_fillin()

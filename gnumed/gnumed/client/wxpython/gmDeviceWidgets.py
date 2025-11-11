@@ -8,9 +8,7 @@ import sys
 import logging
 from lxml import etree
 
-
-import wx	#, wx.grid
-
+#import wx	#, wx.grid
 
 if __name__ == '__main__':
 	sys.path.insert(0, '../../')
@@ -133,19 +131,19 @@ if __name__ == '__main__':
 	#------------------------------------------------------------
 	def test_grid():
 		gmPersonSearch.ask_for_patient()
-		app = wx.PyWidgetTester(size = (500, 300))
+#		app = wx.PyWidgetTester(size = (500, 300))
 #		lab_grid = cMeasurementsGrid(app.frame, -1)
 #		lab_grid.patient = pat
-		app.frame.Show()
-		app.MainLoop()
+#		app.frame.Show()
+#		app.MainLoop()
 	#------------------------------------------------------------
 	def test_test_ea_pnl():
 		pat = gmPersonSearch.ask_for_patient()
 		gmPatSearchWidgets.set_active_patient(patient=pat)
-		app = wx.PyWidgetTester(size = (500, 300))
+#		app = wx.PyWidgetTester(size = (500, 300))
 #		ea = cMeasurementEditAreaPnl(app.frame, -1)
-		app.frame.Show()
-		app.MainLoop()
+#		app.frame.Show()
+#		app.MainLoop()
 	#------------------------------------------------------------
 	if (len(sys.argv) > 1) and (sys.argv[1] == 'test'):
 		#test_grid()

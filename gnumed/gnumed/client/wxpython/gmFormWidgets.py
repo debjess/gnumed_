@@ -14,10 +14,17 @@ import shutil
 
 import wx
 
-
+# setup translation
 if __name__ == '__main__':
 	sys.path.insert(0, '../../')
 	_ = lambda x:x
+else:
+	try:
+		_
+	except NameError:
+		from Gnumed.pycommon import gmI18N
+		gmI18N.activate_locale()
+		gmI18N.install_domain()
 from Gnumed.pycommon import gmI18N
 from Gnumed.pycommon import gmTools
 from Gnumed.pycommon import gmDispatcher
@@ -108,7 +115,7 @@ def print_generic_document(parent=None, jobtype:str=None, episode=None):
 			doc_file.write(adr.format(single_line = False, verbose = True, show_type = True))
 		doc_file.write('\n\n')
 		for chan in pat.get_comm_channels():
-			doc_file.werite(chan.format())
+			doc_file.write(chan.format())
 		doc_file.write('\n\n')
 	doc_file.write('Provider:\n')
 	doc_file.write('\n'.join(gmStaff.gmCurrentProvider().get_staff().format()))
@@ -1213,16 +1220,24 @@ class cReceiverSelectionDlg(wxgReceiverSelectionDlg.wxgReceiverSelectionDlg):
 #------------------------------------------------------------
 if __name__ == '__main__':
 
+	if len(sys.argv) < 2:
+		sys.exit()
+
+	if sys.argv[1] != 'test':
+		sys.exit()
+
+	del _
+	from Gnumed.pycommon import gmI18N
 	gmI18N.activate_locale()
-	gmI18N.install_domain(domain = 'gnumed')
+	gmI18N.install_domain('gnumed')
 
 	#----------------------------------------
-	def test_cFormTemplateEAPnl():
-		app = wx.PyWidgetTester(size = (400, 300))
-		cFormTemplateEAPnl(app.frame, -1, template = gmForms.cFormTemplate(aPK_obj=4))
-		app.frame.Show(True)
-		app.MainLoop()
-		return
+#	def test_cFormTemplateEAPnl():
+#		app = wx.PyWidgetTester(size = (400, 300))
+#		cFormTemplateEAPnl(app.frame, -1, template = gmForms.cFormTemplate(aPK_obj=4))
+#		app.frame.Show(True)
+#		app.MainLoop()
+#		return
 
 	#----------------------------------------
 	def test_form_template():
@@ -1250,24 +1265,23 @@ if __name__ == '__main__':
 		#gmStaff.set_current_provider_to_logged_on_user()
 		from Gnumed.pycommon import gmPG2
 		gmPG2.request_login_params(setup_pool = True)
-		gmPraxis.activate_first_praxis_branch()
+		gmPraxis.gmCurrentPraxisBranch.from_first_branch()
 		print_generic_document()	#parent=None, jobtype=None, episode=None
 
 	#----------------------------------------
 	def test_generate_failsafe_form_wrapper():
 		from Gnumed.pycommon import gmPG2
 		gmPG2.request_login_params(setup_pool = True)
-		gmPraxis.activate_first_praxis_branch()
+		gmPraxis.gmCurrentPraxisBranch.from_first_branch()
 		header, footer = generate_failsafe_form_wrapper(pk_patient = 12, max_width = 80)
 		print('\n'.join(header))
 		print('   HERE GOES THE FORM')
 		print('\n'.join(footer))
 
 	#----------------------------------------
-	if (len(sys.argv) > 1) and (sys.argv[1] == 'test'):
-		#test_cFormTemplateEAPnl()
-		#test_print_generic_document()
-		#test_generate_failsafe_form_wrapper()
-		test_form_template()
+	#test_cFormTemplateEAPnl()
+	#test_print_generic_document()
+	#test_generate_failsafe_form_wrapper()
+	test_form_template()
 
 #============================================================

@@ -21,8 +21,9 @@ from Gnumed.pycommon import gmTools
 from Gnumed.pycommon import gmDispatcher
 from Gnumed.pycommon import gmMatchProvider
 
-from Gnumed.business import gmEMRStructItems
+from Gnumed.business import gmPerformedProcedure
 from Gnumed.business import gmPerson
+from Gnumed.business import gmHospitalStay
 
 from Gnumed.wxpython import gmListWidgets
 from Gnumed.wxpython import gmEditArea
@@ -55,7 +56,7 @@ def manage_performed_procedures(parent=None):
 
 	#-----------------------------------------
 	def delete(procedure=None):
-		if gmEMRStructItems.delete_performed_procedure(procedure = procedure['pk_procedure']):
+		if gmPerformedProcedure.delete_performed_procedure(procedure = procedure['pk_procedure']):
 			return True
 
 		gmDispatcher.send (
@@ -166,7 +167,7 @@ limit 25
 			self._PRW_location.Enable(False)
 			self._PRW_episode.SetText()
 			self._PRW_episode.Enable(False)
-			self._LBL_hospital_details.SetLabel(gmEMRStructItems.cHospitalStay(aPK_obj = stay).format())
+			self._LBL_hospital_details.SetLabel(gmHospitalStay.cHospitalStay(aPK_obj = stay).format())
 
 	#----------------------------------------------------------------
 	def _on_location_lost_focus(self):
@@ -287,7 +288,7 @@ limit 25
 		if stay is None:
 			epi = self._PRW_episode.GetData(can_create = True)
 		else:
-			epi = gmEMRStructItems.cHospitalStay(aPK_obj = stay)['pk_episode']
+			epi = gmHospitalStay.cHospitalStay(aPK_obj = stay)['pk_episode']
 
 		proc = emr.add_performed_procedure (
 			episode = epi,
@@ -328,7 +329,7 @@ limit 25
 		if self.data['pk_hospital_stay'] is None:
 			self.data['pk_episode'] = self._PRW_episode.GetData()
 		else:
-			self.data['pk_episode'] = gmEMRStructItems.cHospitalStay(aPK_obj = self._PRW_hospital_stay.GetData())['pk_episode']
+			self.data['pk_episode'] = gmHospitalStay.cHospitalStay(aPK_obj = self._PRW_hospital_stay.GetData())['pk_episode']
 		self.data.save()
 
 		self.data.generic_codes = [ c['data'] for c in self._PRW_codes.GetData() ]
@@ -382,7 +383,7 @@ limit 25
 		else:
 			self._PRW_hospital_stay.SetText(value = '%s @ %s' % (self.data['unit'], self.data['organization']), data = self.data['pk_hospital_stay'])
 			self._PRW_hospital_stay.Enable(True)
-			self._LBL_hospital_details.SetLabel(gmEMRStructItems.cHospitalStay(aPK_obj = self.data['pk_hospital_stay']).format())
+			self._LBL_hospital_details.SetLabel(gmHospitalStay.cHospitalStay(aPK_obj = self.data['pk_hospital_stay']).format())
 			self._PRW_location.SetText()
 			self._PRW_location.Enable(False)
 			self._PRW_episode.Enable(False)
@@ -408,7 +409,7 @@ limit 25
 		else:
 			self._PRW_hospital_stay.SetText(value = '%s @ %s' % (self.data['unit'], self.data['organization']), data = self.data['pk_hospital_stay'])
 			self._PRW_hospital_stay.Enable(True)
-			self._LBL_hospital_details.SetLabel(gmEMRStructItems.cHospitalStay(aPK_obj = self.data['pk_hospital_stay']).format())
+			self._LBL_hospital_details.SetLabel(gmHospitalStay.cHospitalStay(aPK_obj = self.data['pk_hospital_stay']).format())
 			self._PRW_location.SetText()
 			self._PRW_location.Enable(False)
 			self._PRW_episode.Enable(False)
@@ -461,9 +462,9 @@ if __name__ == '__main__':
 	from Gnumed.wxpython import gmPatSearchWidgets
 
 	#----------------------------------------------------------------
-	def test_edit_procedure():
-		app = wx.PyWidgetTester(size = (200, 300))
-		edit_procedure(parent=app.frame)
+#	def test_edit_procedure()
+#		app = wx.PyWidgetTester(size = (200, 300))
+#		edit_procedure(parent=app.frame)
 
 	#================================================================
 	# obtain patient
@@ -473,4 +474,4 @@ if __name__ == '__main__':
 		sys.exit(0)
 	gmPatSearchWidgets.set_active_patient(patient=pat)
 
-	test_edit_procedure()
+#	test_edit_procedure()

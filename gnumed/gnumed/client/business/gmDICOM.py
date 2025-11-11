@@ -21,8 +21,15 @@ import datetime as pydt
 from urllib.parse import urlencode
 
 
+_log = logging.getLogger('gm.dicom')
+
+
 # 3rd party
-from packaging import version
+try:
+	from packaging import version as py_version
+except (ImportError, ModuleNotFoundError):
+	_log.error('please install the <packaging> python module which used to be in the stdlib')
+	py_version = None
 
 
 # GNUmed modules
@@ -33,7 +40,6 @@ from Gnumed.pycommon import gmShellAPI
 from Gnumed.pycommon import gmMimeLib
 from Gnumed.pycommon import gmDateTime
 
-_log = logging.getLogger('gm.dicom')
 
 _map_gender_gm2dcm = {
 	'm': 'M',
@@ -49,12 +55,72 @@ class cOrthancServer:
 	"""
 	# REST API access to Orthanc DICOM servers
 
-#	def __init__(self):
-#		self.__server_identification = None
-#		self.__user = None
-#		self.__password = None
-#		self.__conn = None
-#		self.__server_url = None
+	def __init__(self):
+		self.__server_identification = None
+		self.__user = None
+		self.__password = None
+		self.__conn = None
+		self.__server_url = None
+		self.using_ssl = None
+
+	#--------------------------------------------------------
+	def __get_server_url(self):
+		return self.__server_url
+
+	server_url = property(__get_server_url)
+
+	#--------------------------------------------------------
+	def __setup_cache_dir(self):
+		cache_dir = os.path.join(gmTools.gmPaths().user_tmp_dir, '.orthanc2gm-cache')
+		gmTools.mkdir(cache_dir, 0o700)
+		gmTools.create_directory_description_file(directory = cache_dir, readme = 'this directory caches Orthanc REST data, mainly DICOM files')
+		_log.debug('using cache directory: %s', cache_dir)
+		return cache_dir
+
+	#--------------------------------------------------------
+	def __try_httpS(self, host, port):
+		try:
+			import ssl
+			_log.debug('ssl: %s', ssl.OPENSSL_VERSION)
+		except ModuleNotFoundError:
+			_log.exception('no SSL support compiled into this Python')
+			return False
+
+		try:
+			self.__server_url = str('https://%s:%s' % (host, port))
+		except Exception:
+			_log.exception('cannot create server url from: host [%s] and port [%s]', host, port)
+			self.__server_url = None
+			return False
+
+		_log.info('trying connection as [%s] to Orthanc server at [%s]', self.__user, self.__server_url)
+		ident = self.server_identification
+		if not ident:
+			_log.error('HTTPS failure ?')
+			self.__server_url = None
+			return False
+
+		_log.debug('connected to server: %s', ident)
+		return True
+
+	#--------------------------------------------------------
+	def __try_http(self, host, port):
+		try:
+			self.__server_url = str('http://%s:%s' % (host, port))
+		except Exception:
+			_log.exception('cannot create server url from: host [%s] and port [%s]', host, port)
+			self.__server_url = None
+			return False
+
+		_log.info('trying connection as [%s] to Orthanc server at [%s]', self.__user, self.__server_url)
+		ident = self.server_identification
+		if not ident:
+			_log.error('HTTP connect failure ?')
+			self.__server_url = None
+			return False
+
+		_log.debug('connected to server: %s', ident)
+		return True
 
 	#--------------------------------------------------------
 	def connect(self, host, port, user, password, expected_minimal_version=None, expected_name=None, expected_aet=None) -> bool:
@@ -63,56 +129,48 @@ class cOrthancServer:
 		except Exception:
 			_log.error('invalid port [%s]', port)
 			return False
+
 		if (host is None) or (host.strip() == ''):
 			host = 'localhost'
-		try:
-			self.__server_url = str('http://%s:%s' % (host, port))
-		except Exception:
-			_log.exception('cannot create server url from: host [%s] and port [%s]', host, port)
-			return False
-
+		cache_dir = self.__setup_cache_dir()
 		self.__user = user
 		self.__password = password
-		_log.info('connecting as [%s] to Orthanc server at [%s]', self.__user, self.__server_url)
-		cache_dir = os.path.join(gmTools.gmPaths().user_tmp_dir, '.orthanc2gm-cache')
-		gmTools.mkdir(cache_dir, 0o700)
-		gmTools.create_directory_description_file(directory = cache_dir, readme = 'this directory caches Orthanc REST data, mainly DICOM files')
-		_log.debug('using cache directory: %s', cache_dir)
 		self.__conn = httplib2.Http(cache = cache_dir)
 		self.__conn.add_credentials(self.__user, self.__password)
-		_log.debug('connected to server: %s', self.server_identification)
-		self.connect_error = ''
-		if self.server_identification is False:
-			self.connect_error += 'retrieving server identification failed'
-			return False
+		self.__server_url = None
+		self.using_ssl = self.__try_httpS(host, port)
+		if not self.using_ssl:
+			if not self.__try_http(host, port):
+				_log.error('unable to connect')
+				self.connect_error = 'retrieving server identification failed'
+				return False
 
-		if expected_minimal_version is not None:
-			if version.parse(self.server_identification['Version']) < version.parse(expected_minimal_version):
+		if (expected_minimal_version is not None) and (py_version is not None):
+			if py_version.parse(self.server_identification['Version']) < py_version.parse(expected_minimal_version):
 				_log.error('server too old, needed [%s]', expected_minimal_version)
-				self.connect_error += 'server too old, needed version [%s]' % expected_minimal_version
+				self.connect_error = 'server too old, needed version [%s]' % expected_minimal_version
 				return False
 
 		if expected_name is not None:
 			if self.server_identification['Name'] != expected_name:
 				_log.error('wrong server name, expected [%s]', expected_name)
-				self.connect_error += 'wrong server name, expected [%s]' % expected_name
+				self.connect_error = 'wrong server name, expected [%s]' % expected_name
 				return False
 
 		if expected_aet is not None:
 			if self.server_identification['DicomAet'] != expected_name:
 				_log.error('wrong server AET, expected [%s]', expected_aet)
-				self.connect_error += 'wrong server AET, expected [%s]' % expected_aet
+				self.connect_error = 'wrong server AET, expected [%s]' % expected_aet
 				return False
 
+		self.connect_error = ''
 		return True
 
 	#--------------------------------------------------------
 	def _get_server_identification(self):
-		try:
-			return self.__server_identification		# pylint: disable=access-member-before-definition
+		if self.__server_identification:
+			return self.__server_identification
 
-		except AttributeError:
-			pass
 		system_data = self.__run_GET(url = '%s/system' % self.__server_url)
 		if system_data is False:
 			_log.error('unable to get server identification')
@@ -466,8 +524,8 @@ class cOrthancServer:
 		target_dicomdir_name = os.path.join(sandbox_dir, 'DICOMDIR')
 		gmTools.remove_file(target_dicomdir_name, log_error = False)	# better safe than sorry
 		_log.debug('generating [%s]', target_dicomdir_name)
-		cmd = '%(cmd)s %(DICOMDIR)s %(startdir)s' % {
-			'cmd': external_cmd,
+		cmd = '%(exe)s %(DICOMDIR)s %(startdir)s' % {
+			'exe': external_cmd,
 			'DICOMDIR': target_dicomdir_name,
 			'startdir': sandbox_dir
 		}
@@ -959,258 +1017,239 @@ class cOrthancServer:
 	#--------------------------------------------------------
 	# helper functions
 	#--------------------------------------------------------
-	def get_studies_list_by_orthanc_patient_list(self, orthanc_patients=None):
+	def __setup_patient_dict_from_orthanc_patient(self, orthanc_patient=None) -> dict:
+		pat_dict = {
+			'orthanc_id': orthanc_patient['ID'],
+			'name': None,
+			'external_id': None,
+			'date_of_birth': None,
+			'gender': None,
+			'studies': []
+		}
+		try:
+			pat_dict['name'] = orthanc_patient['MainDicomTags']['PatientName'].strip()
+		except KeyError:
+			pass
+		try:
+			pat_dict['external_id'] = orthanc_patient['MainDicomTags']['PatientID'].strip()
+		except KeyError:
+			pass
+		try:
+			pat_dict['date_of_birth'] = orthanc_patient['MainDicomTags']['PatientBirthDate'].strip()
+		except KeyError:
+			pass
+		try:
+			pat_dict['gender'] = orthanc_patient['MainDicomTags']['PatientSex'].strip()
+		except KeyError:
+			pass
+		for key in pat_dict:
+			if pat_dict[key] in ['unknown', '(null)', '']:
+				pat_dict[key] = None
+			pat_dict[key] = cleanup_dicom_string(pat_dict[key])
+		return pat_dict
 
+	#--------------------------------------------------------
+	def __get_new_study_dict(self) -> dict[str, str|list|dict]:
+		return {
+			'orthanc_id': None,
+			'date': None,
+			'time': None,
+			'description': None,
+			'referring_doc': None,
+			'requesting_doc': None,
+			'requesting_org': None,
+			'performing_doc': None,
+			'operator_name': None,
+			'radiographer_code': None,
+			'radiology_org': None,
+			'radiology_dept': None,
+			'radiology_org_addr': None,
+			'station_name': None,
+			'series': []
+		}
+
+	#--------------------------------------------------------
+	def __setup_study_dict_from_orthanc_study(self, orthanc_study=None, orthanc_patient=None) -> dict:
 		study_keys2hide =  ['ModifiedFrom', 'Type', 'ID', 'ParentPatient', 'Series']
+		study_dict = self.__get_new_study_dict()
+		study_dict['orthanc_id'] = orthanc_study['ID']
+		src2target_key_map = [
+			('StudyDate', 'date'),
+			('StudyTime', 'time'),
+			('StudyDescription', 'description'),
+			('ReferringPhysicianName', 'referring_doc'),
+			('RequestingPhysician', 'requesting_doc'),
+			('RequestingService', 'requesting_org'),
+			('InstitutionAddress', 'radiology_org_addr')
+		]
+		for src_key, target_key in src2target_key_map:
+			try:
+				study_dict[target_key] = orthanc_study['MainDicomTags'][src_key].strip()
+			except KeyError:
+				pass
+		try:
+			study_dict['radiology_org'] = orthanc_study['MainDicomTags']['InstitutionName'].strip()
+			if study_dict['radiology_org_addr']:
+				if study_dict['radiology_org'] in study_dict['radiology_org_addr']:
+					study_dict['radiology_org'] = None
+		except KeyError:
+			pass
+		try:
+			study_dict['radiology_dept'] = orthanc_study['MainDicomTags']['InstitutionalDepartmentName'].strip()
+			if study_dict['radiology_org']:
+				if study_dict['radiology_dept'] in study_dict['radiology_org']:
+					study_dict['radiology_dept'] = None
+			if study_dict['radiology_org_addr']:
+				if study_dict['radiology_dept'] in study_dict['radiology_org_addr']:
+					study_dict['radiology_dept'] = None
+		except KeyError:
+			pass
+		try:
+			study_dict['station_name'] = orthanc_study['MainDicomTags']['StationName'].strip()
+			if study_dict['radiology_org'] is not None:
+				if study_dict['station_name'] in study_dict['radiology_org']:
+					study_dict['station_name'] = None
+			if study_dict['radiology_org_addr'] is not None:
+				if study_dict['station_name'] in study_dict['radiology_org_addr']:
+					study_dict['station_name'] = None
+			if study_dict['radiology_dept'] is not None:
+				if study_dict['station_name'] in study_dict['radiology_dept']:
+					study_dict['station_name'] = None
+		except KeyError:
+			pass
+		for key in study_dict:
+			if study_dict[key] in ['unknown', '(null)', '']:
+				study_dict[key] = None
+			study_dict[key] = cleanup_dicom_string(study_dict[key])
+		study_dict['all_tags'] = {}
+		try:
+			orthanc_study['PatientMainDicomTags']
+		except KeyError:
+			orthanc_study['PatientMainDicomTags'] = orthanc_patient['MainDicomTags']
+		for key in orthanc_study:
+			if key == 'MainDicomTags':
+				for mkey in orthanc_study['MainDicomTags']:
+					study_dict['all_tags'][mkey] = orthanc_study['MainDicomTags'][mkey].strip()
+				continue
+			if key == 'PatientMainDicomTags':
+				for pkey in orthanc_study['PatientMainDicomTags']:
+					study_dict['all_tags'][pkey] = orthanc_study['PatientMainDicomTags'][pkey].strip()
+				continue
+			study_dict['all_tags'][key] = orthanc_study[key]
+		_log.debug('study: %s', list(study_dict['all_tags']))
+		for key in study_keys2hide:
+			try:
+				del study_dict['all_tags'][key]
+			except KeyError: pass
+		return study_dict
+
+	#--------------------------------------------------------
+	def __get_new_series_dict(self) -> dict:
+		return {
+			'orthanc_id': None,
+			'instances': None,
+			'modality': None,
+			'date': None,
+			'time': None,
+			'description': None,
+			'body_part': None,
+			'protocol': None,
+			'performed_procedure_step_description': None,
+			'acquisition_device_processing_description': None,
+			'operator_name': None,
+			'radiographer_code': None,
+			'performing_doc': None
+		}
+
+	#--------------------------------------------------------
+	def __setup_series_dict_from_orthanc_series(self, orthanc_series=None, study_dict:dict=None) -> dict:
 		series_keys2hide = ['ModifiedFrom', 'Type', 'ID', 'ParentStudy',   'Instances']
+		ordered_slices = self.__run_GET(url = '%s/series/%s/ordered-slices' % (self.__server_url, orthanc_series['ID']))
+		if ordered_slices is False:
+			slices = orthanc_series['Instances']
+		else:
+			slices = [ s[0] for s in ordered_slices['SlicesShort'] ]
+		series_dict = self.__get_new_series_dict()
+		series_dict['orthanc_id'] = orthanc_series['ID']
+		series_dict['instances'] = slices
+		src2target_key_map = [
+			('Modality', 'modality'),
+			('SeriesDate', 'date'),
+			('SeriesTime', 'time'),
+			('SeriesDescription', 'description'),
+			('BodyPartExamined', 'body_part'),
+			('ProtocolName', 'protocol'),
+			('PerformedProcedureStepDescription', 'performed_procedure_step_description'),
+			('AcquisitionDeviceProcessingDescription', 'acquisition_device_processing_description'),
+			('OperatorsName', 'operator_name'),
+			('RadiographersCode', 'radiographer_code'),
+			('PerformingPhysicianName', 'performing_doc')
+		]
+		for src_key, target_key in src2target_key_map:
+			try:
+				series_dict[target_key] = orthanc_series['MainDicomTags'][src_key].strip()
+			except KeyError:
+				pass
+		for key in series_dict:
+			if series_dict[key] in ['unknown', '(null)', '']:
+				series_dict[key] = None
+		if series_dict['description'] == series_dict['protocol']:
+			_log.debug('<series description> matches <series protocol>, ignoring protocol')
+			series_dict['protocol'] = None
+		if series_dict['performed_procedure_step_description'] in [series_dict['description'], series_dict['protocol']]:
+			series_dict['performed_procedure_step_description'] = None
+		if series_dict['performed_procedure_step_description']:
+			# weed out "numeric" only
+			if regex.match (r'[.,/\|\-\s\d]+', series_dict['performed_procedure_step_description'], flags = regex.UNICODE):
+				series_dict['performed_procedure_step_description'] = None
+		if series_dict['acquisition_device_processing_description'] in [series_dict['description'], series_dict['protocol']]:
+			series_dict['acquisition_device_processing_description'] = None
+		if series_dict['acquisition_device_processing_description']:
+			# weed out "numeric" only
+			if regex.match (r'[.,/\|\-\s\d]+', series_dict['acquisition_device_processing_description'], flags = regex.UNICODE):
+				series_dict['acquisition_device_processing_description'] = None
+		if series_dict['date'] == study_dict['date']:
+			_log.debug('<series date> matches <study date>, ignoring date')
+			series_dict['date'] = None
+		if series_dict['time'] == study_dict['time']:
+			_log.debug('<series time> matches <study time>, ignoring time')
+			series_dict['time'] = None
+		for key in series_dict:
+			series_dict[key] = cleanup_dicom_string(series_dict[key])
+		series_dict['all_tags'] = {}
+		for key in orthanc_series:
+			if key == 'MainDicomTags':
+				for mkey in orthanc_series['MainDicomTags']:
+					series_dict['all_tags'][mkey] = orthanc_series['MainDicomTags'][mkey].strip()
+				continue
+			series_dict['all_tags'][key] = orthanc_series[key]
+		_log.debug('series: %s', list(series_dict['all_tags']))
+		for key in series_keys2hide:
+			try: del series_dict['all_tags'][key]
+			except KeyError: pass
+		return series_dict
 
+	#--------------------------------------------------------
+	def get_studies_list_by_orthanc_patient_list(self, orthanc_patients:list=None) -> list[dict]:
 		studies_by_patient = []
-
-		# loop over patients
-		for pat in orthanc_patients:
-			pat_dict = {
-				'orthanc_id': pat['ID'],
-				'name': None,
-				'external_id': None,
-				'date_of_birth': None,
-				'gender': None,
-				'studies': []
-			}
-			try:
-				pat_dict['name'] = pat['MainDicomTags']['PatientName'].strip()
-			except KeyError:
-				pass
-			try:
-				pat_dict['external_id'] = pat['MainDicomTags']['PatientID'].strip()
-			except KeyError:
-				pass
-			try:
-				pat_dict['date_of_birth'] = pat['MainDicomTags']['PatientBirthDate'].strip()
-			except KeyError:
-				pass
-			try:
-				pat_dict['gender'] = pat['MainDicomTags']['PatientSex'].strip()
-			except KeyError:
-				pass
-			for key in pat_dict:
-				if pat_dict[key] in ['unknown', '(null)', '']:
-					pat_dict[key] = None
-				pat_dict[key] = cleanup_dicom_string(pat_dict[key])
+		for orth_pat in orthanc_patients:
+			pat_dict = self.__setup_patient_dict_from_orthanc_patient(orthanc_patient = orth_pat)
 			studies_by_patient.append(pat_dict)
-
-			# loop over studies of patient
-			orth_studies = self.__run_GET(url = '%s/patients/%s/studies' % (self.__server_url, pat['ID']))
+			orth_studies = self.__run_GET(url = '%s/patients/%s/studies' % (self.__server_url, orth_pat['ID']))
 			if orth_studies is False:
 				_log.error('cannot retrieve studies')
 				return []
-			for orth_study in orth_studies:
-				study_dict = {
-					'orthanc_id': orth_study['ID'],
-					'date': None,
-					'time': None,
-					'description': None,
-					'referring_doc': None,
-					'requesting_doc': None,
-					'requesting_org': None,
-					'performing_doc': None,
-					'operator_name': None,
-					'radiographer_code': None,
-					'radiology_org': None,
-					'radiology_dept': None,
-					'radiology_org_addr': None,
-					'station_name': None,
-					'series': []
-				}
-				try:
-					study_dict['date'] = orth_study['MainDicomTags']['StudyDate'].strip()
-				except KeyError:
-					pass
-				try:
-					study_dict['time'] = orth_study['MainDicomTags']['StudyTime'].strip()
-				except KeyError:
-					pass
-				try:
-					study_dict['description'] = orth_study['MainDicomTags']['StudyDescription'].strip()
-				except KeyError:
-					pass
-				try:
-					study_dict['referring_doc'] = orth_study['MainDicomTags']['ReferringPhysicianName'].strip()
-				except KeyError:
-					pass
-				try:
-					study_dict['requesting_doc'] = orth_study['MainDicomTags']['RequestingPhysician'].strip()
-				except KeyError:
-					pass
-				try:
-					study_dict['requesting_org'] = orth_study['MainDicomTags']['RequestingService'].strip()
-				except KeyError:
-					pass
-				try:
-					study_dict['radiology_org_addr'] = orth_study['MainDicomTags']['InstitutionAddress'].strip()
-				except KeyError:
-					pass
-				try:
-					study_dict['radiology_org'] = orth_study['MainDicomTags']['InstitutionName'].strip()
-					if study_dict['radiology_org_addr'] is not None:
-						if study_dict['radiology_org'] in study_dict['radiology_org_addr']:
-							study_dict['radiology_org'] = None
-				except KeyError:
-					pass
-				try:
-					study_dict['radiology_dept'] = orth_study['MainDicomTags']['InstitutionalDepartmentName'].strip()
-					if study_dict['radiology_org'] is not None:
-						if study_dict['radiology_dept'] in study_dict['radiology_org']:
-							study_dict['radiology_dept'] = None
-					if study_dict['radiology_org_addr'] is not None:
-						if study_dict['radiology_dept'] in study_dict['radiology_org_addr']:
-							study_dict['radiology_dept'] = None
-				except KeyError:
-					pass
-				try:
-					study_dict['station_name'] = orth_study['MainDicomTags']['StationName'].strip()
-					if study_dict['radiology_org'] is not None:
-						if study_dict['station_name'] in study_dict['radiology_org']:
-							study_dict['station_name'] = None
-					if study_dict['radiology_org_addr'] is not None:
-						if study_dict['station_name'] in study_dict['radiology_org_addr']:
-							study_dict['station_name'] = None
-					if study_dict['radiology_dept'] is not None:
-						if study_dict['station_name'] in study_dict['radiology_dept']:
-							study_dict['station_name'] = None
-				except KeyError:
-					pass
-				for key in study_dict:
-					if study_dict[key] in ['unknown', '(null)', '']:
-						study_dict[key] = None
-					study_dict[key] = cleanup_dicom_string(study_dict[key])
-				study_dict['all_tags'] = {}
-				try:
-					orth_study['PatientMainDicomTags']
-				except KeyError:
-					orth_study['PatientMainDicomTags'] = pat['MainDicomTags']
-				for key in orth_study:
-					if key == 'MainDicomTags':
-						for mkey in orth_study['MainDicomTags']:
-							study_dict['all_tags'][mkey] = orth_study['MainDicomTags'][mkey].strip()
-						continue
-					if key == 'PatientMainDicomTags':
-						for pkey in orth_study['PatientMainDicomTags']:
-							study_dict['all_tags'][pkey] = orth_study['PatientMainDicomTags'][pkey].strip()
-						continue
-					study_dict['all_tags'][key] = orth_study[key]
-				_log.debug('study: %s', list(study_dict['all_tags']))
-				for key in study_keys2hide:
-					try: del study_dict['all_tags'][key]
-					except KeyError: pass
-				pat_dict['studies'].append(study_dict)
 
-				# loop over series in study
+			for orth_study in orth_studies:
+				study_dict = self.__setup_study_dict_from_orthanc_study(orthanc_study = orth_study, orthanc_patient = orth_pat)
+				pat_dict['studies'].append(study_dict)
 				for orth_series_id in orth_study['Series']:
 					orth_series = self.__run_GET(url = '%s/series/%s' % (self.__server_url, orth_series_id))
-					ordered_slices = self.__run_GET(url = '%s/series/%s/ordered-slices' % (self.__server_url, orth_series_id))
-					if ordered_slices is False:
-						slices = orth_series['Instances']
-					else:
-						slices = [ s[0] for s in ordered_slices['SlicesShort'] ]
 					if orth_series is False:
 						_log.error('cannot retrieve series')
 						return []
-					series_dict = {
-						'orthanc_id': orth_series['ID'],
-						'instances': slices,
-						'modality': None,
-						'date': None,
-						'time': None,
-						'description': None,
-						'body_part': None,
-						'protocol': None,
-						'performed_procedure_step_description': None,
-						'acquisition_device_processing_description': None,
-						'operator_name': None,
-						'radiographer_code': None,
-						'performing_doc': None
-					}
-					try:
-						series_dict['modality'] = orth_series['MainDicomTags']['Modality'].strip()
-					except KeyError:
-						pass
-					try:
-						series_dict['date'] = orth_series['MainDicomTags']['SeriesDate'].strip()
-					except KeyError:
-						pass
-					try:
-						series_dict['description'] = orth_series['MainDicomTags']['SeriesDescription'].strip()
-					except KeyError:
-						pass
-					try:
-						series_dict['time'] = orth_series['MainDicomTags']['SeriesTime'].strip()
-					except KeyError:
-						pass
-					try:
-						series_dict['body_part'] = orth_series['MainDicomTags']['BodyPartExamined'].strip()
-					except KeyError:
-						pass
-					try:
-						series_dict['protocol'] = orth_series['MainDicomTags']['ProtocolName'].strip()
-					except KeyError:
-						pass
-					try:
-						series_dict['performed_procedure_step_description'] = orth_series['MainDicomTags']['PerformedProcedureStepDescription'].strip()
-					except KeyError:
-						pass
-					try:
-						series_dict['acquisition_device_processing_description'] = orth_series['MainDicomTags']['AcquisitionDeviceProcessingDescription'].strip()
-					except KeyError:
-						pass
-					try:
-						series_dict['operator_name'] = orth_series['MainDicomTags']['OperatorsName'].strip()
-					except KeyError:
-						pass
-					try:
-						series_dict['radiographer_code'] = orth_series['MainDicomTags']['RadiographersCode'].strip()
-					except KeyError:
-						pass
-					try:
-						series_dict['performing_doc'] = orth_series['MainDicomTags']['PerformingPhysicianName'].strip()
-					except KeyError:
-						pass
-					for key in series_dict:
-						if series_dict[key] in ['unknown', '(null)', '']:
-							series_dict[key] = None
-					if series_dict['description'] == series_dict['protocol']:
-						_log.debug('<series description> matches <series protocol>, ignoring protocol')
-						series_dict['protocol'] = None
-					if series_dict['performed_procedure_step_description'] in [series_dict['description'], series_dict['protocol']]:
-						series_dict['performed_procedure_step_description'] = None
-					if series_dict['performed_procedure_step_description'] is not None:
-						# weed out "numeric" only
-						if regex.match (r'[.,/\|\-\s\d]+', series_dict['performed_procedure_step_description'], flags = regex.UNICODE):
-							series_dict['performed_procedure_step_description'] = None
-					if series_dict['acquisition_device_processing_description'] in [series_dict['description'], series_dict['protocol']]:
-						series_dict['acquisition_device_processing_description'] = None
-					if series_dict['acquisition_device_processing_description'] is not None:
-						# weed out "numeric" only
-						if regex.match (r'[.,/\|\-\s\d]+', series_dict['acquisition_device_processing_description'], flags = regex.UNICODE):
-							series_dict['acquisition_device_processing_description'] = None
-					if series_dict['date'] == study_dict['date']:
-						_log.debug('<series date> matches <study date>, ignoring date')
-						series_dict['date'] = None
-					if series_dict['time'] == study_dict['time']:
-						_log.debug('<series time> matches <study time>, ignoring time')
-						series_dict['time'] = None
-					for key in series_dict:
-						series_dict[key] = cleanup_dicom_string(series_dict[key])
-					series_dict['all_tags'] = {}
-					for key in orth_series:
-						if key == 'MainDicomTags':
-							for mkey in orth_series['MainDicomTags']:
-								series_dict['all_tags'][mkey] = orth_series['MainDicomTags'][mkey].strip()
-							continue
-						series_dict['all_tags'][key] = orth_series[key]
-					_log.debug('series: %s', list(series_dict['all_tags']))
-					for key in series_keys2hide:
-						try: del series_dict['all_tags'][key]
-						except KeyError: pass
+
+					series_dict = self.__setup_series_dict_from_orthanc_series(orthanc_series = orth_series, study_dict = study_dict)
 					study_dict['operator_name'] = series_dict['operator_name']			# will collapse all operators into that of the last series
 					study_dict['radiographer_code'] = series_dict['radiographer_code']	# will collapse all into that of the last series
 					study_dict['performing_doc'] = series_dict['performing_doc']		# will collapse all into that of the last series
@@ -1428,7 +1467,7 @@ class cOrthancServer:
 	server_url = property(_get_server_url)
 
 #------------------------------------------------------------
-def cleanup_dicom_string(dicom_str:str) -> str:
+def cleanup_dicom_string(dicom_str) -> str:
 	if not isinstance(dicom_str, str):
 		return dicom_str
 
@@ -1744,30 +1783,31 @@ if __name__ == "__main__":
 				print("user cancelled patient search")
 				break
 
-			pats = orthanc.get_patients_by_external_id(external_id = entered_name)
-			if len(pats) > 0:
-				print('Patients found:')
-				for pat in pats:
-					print(' -> ', pat)
-				continue
+#			pats = orthanc.get_patients_by_external_id(external_id = entered_name)
+#			if len(pats) > 0:
+#				print('Patients found:')
+#				for pat in pats:
+#					print(' -> ', pat)
+#				continue
 
-			pats = orthanc.get_patients_by_name(name_parts = entered_name.split(), fuzzy = True)
-			print('Patients found:')
-			for pat in pats:
-				print(' -> ', pat)
-				print('  verifying ...')
-				bad_data = orthanc.verify_patient_data(pat['ID'])
-				print('  bad data:')
-				for bad in bad_data:
-					print('  -> ', bad)
-				continue
+#			pats = orthanc.get_patients_by_name(name_parts = entered_name.split(), fuzzy = True)
+#			print('Patients found:')
+#			for pat in pats:
+#				print(' -> ', pat)
+#				print('  verifying ...')
+#				bad_data = orthanc.verify_patient_data(pat['ID'])
+#				print('  bad data:')
+#				for bad in bad_data:
+#					print('  -> ', bad)
+#				continue
 
-			continue
+#			continue
 
 			pats = orthanc.get_studies_list_by_patient_name(name_parts = entered_name.split(), fuzzy = True)
 			print('Patients found from studies list:')
 			for pat in pats:
 				print(' -> ', pat['name'])
+				input()
 				for study in pat['studies']:
 					print(' ', gmTools.format_dict_like(study, relevant_keys = ['orthanc_id', 'date', 'time'], template = 'study [%%(orthanc_id)s] at %%(date)s %%(time)s contains %s series' % len(study['series'])))
 #					for series in study['series']:
@@ -1903,7 +1943,9 @@ if __name__ == "__main__":
 		#print(orthanc.get_patients_by_name_parts(name_parts = ['Seb'], fuzzy = True))
 		#return
 
-		print(orthanc.get_patient('bc107806-098880eb-95529338-0f54c681-c4b5ccc4'))
+		pat = orthanc.get_patient('bc107806-098880eb-95529338-0f54c681-c4b5ccc4')
+		for key in pat:
+			print(key, pat[key])
 		#input()
 		#print(orthanc.get_patient('1cff9d34-96047a5a-afb97dd0-33a84dc7-a710ef8f'))
 		return
@@ -1967,9 +2009,12 @@ if __name__ == "__main__":
 
 		global orthanc
 		orthanc = cOrthancServer()
+#		if not orthanc.connect(host, port, user = None, password = None, expected_minimal_version = '1'):		#, expected_aet = 'another AET'
+#		if not orthanc.connect(host, port, user = 'any-doc', password = '?', expected_minimal_version = '1'):		#, expected_aet = 'another AET'
 		if not orthanc.connect(host, port, user = None, password = None, expected_minimal_version = '1'):		#, expected_aet = 'another AET'
 			print('error connecting to server:', orthanc.connect_error)
 			sys.exit(-1)
+
 		print('Connected to Orthanc server "%s" (AET [%s] - version [%s] - DB [%s])' % (
 			orthanc.server_identification['Name'],
 			orthanc.server_identification['DicomAet'],
@@ -1985,11 +2030,11 @@ if __name__ == "__main__":
 	#sys.exit
 
 	_connect()
-	#run_console()
+	run_console()
 	#test_verify_instance()
 	#test_modify_patient_id()
 	#test_upload_files()
 	#test_upload_file()
 	#test_get_instance_preview()
 	#test_get_instance_tags()
-	test_patient()
+	#test_patient()

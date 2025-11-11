@@ -30,6 +30,7 @@ from Gnumed.pycommon import gmDateTime
 from Gnumed.pycommon import gmMimeLib
 from Gnumed.pycommon import gmShellAPI
 from Gnumed.pycommon import gmCrypto
+from Gnumed.pycommon import gmDispatcher
 
 from Gnumed.business import gmPerson
 from Gnumed.business import gmGender
@@ -45,7 +46,6 @@ from Gnumed.wxpython import gmGuiHelpers
 from Gnumed.wxpython import gmNarrativeWorkflows
 from Gnumed.wxpython import gmPatSearchWidgets
 from Gnumed.wxpython import gmPersonContactWidgets
-from Gnumed.wxpython import gmPlugin
 from Gnumed.wxpython import gmEMRStructWidgets
 from Gnumed.wxpython import gmEncounterWidgets
 from Gnumed.wxpython import gmListWidgets
@@ -1455,10 +1455,11 @@ class gmPlaceholderHandler(gmBorg.cBorg):
 			'type': '',
 			'tmpl': _('%(street)s %(number)s, %(postcode)s %(urb)s, %(l10n_region)s, %(l10n_country)s')
 		}
+
 		opts = self._parse_ph_options (
-			option_data = data,
+			options_data = data,
 			kwd_defaults = kwds,
-			pos_default = pos
+			pos_defaults = pos
 		)
 		adr_type = opts['type']
 		orig_type = adr_type
@@ -2552,10 +2553,12 @@ class gmPlaceholderHandler(gmBorg.cBorg):
 		if data is None:
 			return None
 
-		defaults = {'msg': None, 'yes': None, 'no': ''}
-		msg, yes_txt, no_txt = self.__parse_ph_options(option_defs = defaults, options_string = data)
+		msg, yes_txt, no_txt = self._parse_ph_options (
+			options_data = data,
+			kwd_defaults = {'msg': None, 'yes': None, 'no': ''}
+		)
 		if None in [msg, yes_txt]:
-			return self._escape(u'YES_NO lacks proper definition')
+			return self._escape('YES_NO lacks proper definition')
 
 		yes = gmGuiHelpers.gm_show_question(question = msg, cancel_button = False, title = 'Placeholder question')
 		if yes:
@@ -2892,7 +2895,7 @@ class gmPlaceholderHandler(gmBorg.cBorg):
 
 			Keywords: Must contain an option name, followed by a '=', followed by a value. Think 'template=%s'. The value _can_ contain more '='s.
 
-			Positionals: Options which contain only a value. Their name is defined by their _position_ within the option the options data.
+			Positionals: Options which contain only a value. Their name is defined by their _position_ within the options data.
 
 		Note:
 			* Positional defaults override keyword defaults override switch defaults of the same name.
@@ -3159,12 +3162,14 @@ class cMacroPrimitives:
 		"""Raise a notebook plugin within GNUmed."""
 		if not self.__attached:
 			return 0
+
 		if auth_cookie != self.__auth_cookie:
 			_log.error('non-authenticated raise_notebook_plugin()')
 			return 0
-		# FIXME: use semaphore
-		wx.CallAfter(gmPlugin.raise_notebook_plugin, a_plugin)
+
+		gmDispatcher.send(signal = 'display_widget', name = a_plugin)
 		return 1
+
 	#-----------------------------------------------------------------
 	def load_patient_from_external_source(self, auth_cookie = None):
 		"""Load external patient, perhaps create it.
@@ -3216,7 +3221,7 @@ class cMacroPrimitives:
 
 		searcher = gmPersonSearch.cPatientSearcher_SQL()
 		if type(search_params) == dict:
-			idents = searcher.get_identities(search_dict = search_params)
+			#idents = searcher.get_identities(search_dict = search_params)
 			raise Exception("must use dto, not search_dict")
 
 		else:
@@ -3342,8 +3347,6 @@ if __name__ == '__main__':
 
 		print('DOB (YYYY-MM-DD):', handler['date_of_birth::%Y-%m-%d'])
 
-		wx.PyWidgetTester(size = (200, 50))
-
 		ph = 'progress_notes::ap'
 		print('%s: %s' % (ph, handler[ph]))
 	#--------------------------------------------------------
@@ -3412,8 +3415,6 @@ if __name__ == '__main__':
 			input()
 
 #		print 'DOB (YYYY-MM-DD):', handler['date_of_birth::%Y-%m-%d']
-
-#		app = wx.PyWidgetTester(size = (200, 50))
 
 #		ph = 'progress_notes::ap'
 #		print '%s: %s' % (ph, handler[ph])
@@ -3747,7 +3748,6 @@ if __name__ == '__main__':
 			return
 		gmPatSearchWidgets.set_active_patient(patient = pat)
 
-		#app = wx.PyWidgetTester(size = (200, 50))
 		#handler.set_placeholder('form_name_long', 'ein Testformular')
 		for ph in phs:
 			print(ph)

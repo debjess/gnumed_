@@ -45,11 +45,12 @@ from Gnumed.pycommon import gmConnectionPool
 from Gnumed.business import gmPerson
 from Gnumed.business import gmStaff
 from Gnumed.business import gmDocuments
-from Gnumed.business import gmEMRStructItems
+from Gnumed.business import gmHealthIssue
 from Gnumed.business import gmPraxis
 from Gnumed.business import gmDICOM
 from Gnumed.business import gmProviderInbox
 from Gnumed.business import gmOrganization
+from Gnumed.business import gmEpisode
 
 
 from Gnumed.wxpython import gmGuiHelpers
@@ -1087,7 +1088,7 @@ def manage_documents(parent=None, msg=None, single_selection=True, pk_types=None
 	def refresh(lctrl):
 		docs = pat.document_folder.get_documents(pk_types = pk_types, pk_episodes = pk_episodes)
 		items = [ [
-			gmDateTime.pydt_strftime(d['clin_when'], '%Y %b %d'),
+			d['clin_when'].strftime('%Y %b %d'),
 			d['l10n_type'],
 			gmTools.coalesce(d['comment'], ''),
 			gmTools.coalesce(d['ext_ref'], ''),
@@ -1291,7 +1292,7 @@ class cSelectablySortedDocTreePnl(wxgSelectablySortedDocTreePnl.wxgSelectablySor
 
 		items = []
 		items.append([_('Document'), '%s [#%s]' % (document['l10n_type'], document['pk_doc'])])
-		items.append([_('Generated'), gmDateTime.pydt_strftime(document['clin_when'], '%Y %b %d')])
+		items.append([_('Generated'), document['clin_when'].strftime('%Y %b %d')])
 		items.append([_('Health issue'), gmTools.coalesce(document['health_issue'], '', '%%s [#%s]' % document['pk_health_issue'])])
 		items.append([_('Episode'), '%s (%s) [#%s]' % (
 			document['episode'],
@@ -1325,7 +1326,7 @@ class cSelectablySortedDocTreePnl(wxgSelectablySortedDocTreePnl.wxgSelectablySor
 				include_receiver = False,
 				include_doc = False
 			)])
-		items.append([_('Modified'), gmDateTime.pydt_strftime(document['modified_when'], '%Y %b %d')])
+		items.append([_('Modified'), document['modified_when'].strftime('%Y %b %d')])
 		items.append([_('... by'), document['modified_by']])
 		items.append([_('# encounter'), document['pk_encounter']])
 		return items
@@ -1649,7 +1650,7 @@ class cDocTree(wx.TreeCtrl, gmRegetMixin.cRegetOnPaintMixin, treemixin.Expansion
 
 		intermediate_nodes = {}
 		for doc in docs:
-			intermediate_label = gmDateTime.pydt_strftime(doc['clin_when'], '%Y')
+			intermediate_label = doc['clin_when'].strftime('%Y')
 			if intermediate_label not in intermediate_nodes:
 				intermediate_nodes[intermediate_label] = self.AppendItem(parent = self.root, text = intermediate_label)
 				self.SetItemBold(intermediate_nodes[intermediate_label], bold = True)
@@ -1931,8 +1932,8 @@ class cDocTree(wx.TreeCtrl, gmRegetMixin.cRegetOnPaintMixin, treemixin.Expansion
 
 		if isinstance(data1, pydt.datetime):
 			# normalize at year level
-			ts1 = gmDateTime.pydt_strftime(data1, '%Y')
-			ts2 = gmDateTime.pydt_strftime(data2, '%Y')
+			ts1 = data1.strftime('%Y')
+			ts2 = data2.strftime('%Y')
 			# *reverse* chronologically
 			return -1 * self.__compare_by_label(ts1, ts2)
 
@@ -1998,12 +1999,12 @@ class cDocTree(wx.TreeCtrl, gmRegetMixin.cRegetOnPaintMixin, treemixin.Expansion
 
 		if isinstance(self.__curr_node_data, dict):
 			try:
-				issue = gmEMRStructItems.cHealthIssue(aPK_obj = self.__curr_node_data['pk_health_issue'])
+				issue = gmHealthIssue.cHealthIssue(aPK_obj = self.__curr_node_data['pk_health_issue'])
 			except KeyError:
 				_log.debug('node data dict holds pseudo-issue for unattributed episodes, ignoring')
 				issue = None
 			try:
-				episode = gmEMRStructItems.cEpisode(aPK_obj = self.__curr_node_data['pk_episode'])
+				episode = gmEpisode.cEpisode(aPK_obj = self.__curr_node_data['pk_episode'])
 			except KeyError:
 				episode = None
 			self.__show_details_callback(issue = issue, episode = episode)
@@ -2255,7 +2256,7 @@ class cDocTree(wx.TreeCtrl, gmRegetMixin.cRegetOnPaintMixin, treemixin.Expansion
 				self.__curr_node_data['seq_idx'],
 				gmTools.coalesce(self.__curr_node_data['obj_comment'], '', ' "%s"\n\n'),
 				self.__curr_node_data['l10n_type'],
-				gmDateTime.pydt_strftime(self.__curr_node_data['date_generated'], format = '%Y-%m-%d'),
+				self.__curr_node_data['date_generated'].strftime('%Y-%m-%d'),
 				gmTools.coalesce(self.__curr_node_data['doc_comment'], '', ' "%s"\n')
 			)
 		)
@@ -2333,7 +2334,7 @@ class cDocTree(wx.TreeCtrl, gmRegetMixin.cRegetOnPaintMixin, treemixin.Expansion
 				emr.add_clin_narrative (
 					soap_cat = None,
 					note =  _('document part handed over to email program: %s') % self.__curr_node_data.format(single_line = True),
-					episode = self.__curr_node_data['pk_episode']
+					pk_episode = self.__curr_node_data['pk_episode']
 				)
 	#--------------------------------------------------------
 	def __print_part(self, evt):
@@ -2413,8 +2414,7 @@ class cDocTree(wx.TreeCtrl, gmRegetMixin.cRegetOnPaintMixin, treemixin.Expansion
 
 	#--------------------------------------------------------
 	def __edit_encounter_details(self, evt):
-		enc = gmEMRStructItems.cEncounter(aPK_obj = self.__curr_node_data['pk_encounter'])
-		gmEncounterWidgets.edit_encounter(parent = self, encounter = enc)
+		gmEncounterWidgets.edit_encounter(parent = self, encounter = self.__curr_node_data.encounter)
 
 	#--------------------------------------------------------
 	def __process_doc(self, action=None, l10n_action=None):
@@ -2629,7 +2629,10 @@ class cDocTree(wx.TreeCtrl, gmRegetMixin.cRegetOnPaintMixin, treemixin.Expansion
 
 #============================================================
 #============================================================
+#============================================================
 # PACS
+#============================================================
+#============================================================
 #============================================================
 from Gnumed.wxGladeWidgets.wxgPACSPluginPnl import wxgPACSPluginPnl
 
@@ -2642,9 +2645,9 @@ class cPACSPluginPnl(wxgPACSPluginPnl, gmRegetMixin.cRegetOnPaintMixin):
 		self.__patient = gmPerson.gmCurrentPatient()
 		self.__orthanc_patient = None
 		self.__image_data = None
-
 		self.__init_ui()
 		self.__register_interests()
+		self.__connect()
 
 	#--------------------------------------------------------
 	# internal helpers
@@ -2799,14 +2802,15 @@ class cPACSPluginPnl(wxgPACSPluginPnl, gmRegetMixin.cRegetOnPaintMixin):
 		self.__orthanc_patient = None
 		self.__set_button_states()
 		self.__reset_server_identification()
-
 		host = self._TCTRL_host.Value.strip()
 		port = self._TCTRL_port.Value.strip()[:6]
 		if port == '':
 			self._LBL_PACS_identification.SetLabel(_('Cannot connect without port (try 8042).'))
 			return False
+
 		if len(port) < 4:
 			return False
+
 		try:
 			int(port)
 		except ValueError:
@@ -2820,24 +2824,29 @@ class cPACSPluginPnl(wxgPACSPluginPnl, gmRegetMixin.cRegetOnPaintMixin):
 		password = self._TCTRL_password.Value
 		if password == '':
 			password = None
-
 		pacs = gmDICOM.cOrthancServer()
 		if not pacs.connect(host = host, port = port, user = user, password = password):		#, expected_aet = 'another AET'
 			self._LBL_PACS_identification.SetLabel(_('Cannot connect to PACS.'))
 			_log.error('error connecting to server: %s', pacs.connect_error)
 			return False
 
-		#self._LBL_PACS_identification.SetLabel(_('PACS: Orthanc "%s" (AET "%s", Version %s, API v%s, DB v%s)') % (
-		self._LBL_PACS_identification.SetLabel(_('PACS: Orthanc "%s" (AET "%s", Version %s, DB v%s)') % (
-			pacs.server_identification['Name'],
-			pacs.server_identification['DicomAet'],
-			pacs.server_identification['Version'],
-			#pacs.server_identification['ApiVersion'],
-			pacs.server_identification['DatabaseVersion']
-		))
-
+		ident = pacs.server_identification
+		label = _('PACS (Orthanc): "%s" (AET "%s") [%s]') % (
+			ident['Name'],
+			ident['DicomAet'],
+			'SSL' if pacs.using_ssl else _('no SSL')
+		)
+		self._LBL_PACS_identification.SetLabel(label)
+		lines = [
+			_('SSL: in use') if pacs.using_ssl else _('SSL: NOT in use'),
+			'',
+			_('Server details:')
+		]
+		lines.extend([ ' %s: %s' % (key, val) for key, val in ident.items() ])
+		self._LBL_PACS_identification.SetToolTip('\n'.join(lines))
 		self.__pacs = pacs
 		self.__set_button_states()
+		self.__refresh_patient_data()
 		return True
 
 	#--------------------------------------------------------
@@ -2850,7 +2859,7 @@ class cPACSPluginPnl(wxgPACSPluginPnl, gmRegetMixin.cRegetOnPaintMixin):
 			self.__set_button_states()
 			return True
 
-		if not self.__connect():
+		if not self.__pacs:
 			return False
 
 		tt_lines = [_('Known PACS IDs:')]
@@ -3565,6 +3574,7 @@ class cPACSPluginPnl(wxgPACSPluginPnl, gmRegetMixin.cRegetOnPaintMixin):
 
 	#--------------------------------------------------------
 	def _on_post_patient_selection(self):
+		self.__connect()
 		self._schedule_data_reget()
 
 	#--------------------------------------------------------
@@ -4142,13 +4152,13 @@ if __name__ == '__main__':
 	#from Gnumed.wxpython import gmGuiTest
 
 	#----------------------------------------------------------------
-	def test_document_prw():
-		app = wx.PyWidgetTester(size = (180, 20))
+	#def test_document_prw():
+		#app = wx.PyWidgetTester(size = (180, 20))
 		#pnl = cEncounterEditAreaPnl(app.frame, -1, encounter=enc)
-		prw = cDocumentPhraseWheel(app.frame, -1)
-		prw.set_context('pat', 12)
-		app.frame.Show(True)
-		app.MainLoop()
+		#prw = cDocumentPhraseWheel(app.frame, -1)
+		#prw.set_context('pat', 12)
+		#app.frame.Show(True)
+		#app.MainLoop()
 
 	#----------------------------------------------------------------
 	def test_plugin():
@@ -4165,6 +4175,6 @@ if __name__ == '__main__':
 
 	gmPG2.request_login_params(setup_pool = True)
 	gmStaff.set_current_provider_to_logged_on_user()
-	gmPraxis.activate_first_praxis_branch()
+	gmPraxis.gmCurrentPraxisBranch.from_first_branch()
 
 	test_failsafe_list()

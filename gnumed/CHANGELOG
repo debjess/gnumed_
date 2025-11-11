@@ -28,6 +28,7 @@ NEW: documents: failsafe documents list
 NEW: paperwork: direct access to failsafe forms
 NEW: forms: failsafe progress notes form
 NEW: macro expansions in LaTeX templates
+NEW: demographics: editable gender definitions
 
 IMPROVED: GUI: show current patient/provider in window titles
 IMPROVED: placeholder: $current_provider_name$
@@ -63,6 +64,7 @@ FIX: documentation: links (wiki -> static pages)
 FIX: date/time: formatting intervals medically
 FIX: Py3.13: will remove mailcap module
 FIX: forward-port fix for grid selection constant names
+FIX: Py3.13: removed packaging.version from stdlib [thanks María]
 
 ------------------------------------------------
 # rel-1-8-maint
@@ -73,9 +75,17 @@ FIX: forward-port fix for grid selection constant names
 FIX: SOAP: auto-resizing input text field [thanks Maria]
 FIX: SOAP: tabbing in auto-resizing STC [thanks Maria]
 FIX: medication: adding substance dose [thanks Maria]
+FIX: medication: adding intake [thanks vboxuser]
+FIX: backport mailcap import on Python 3.13 [thanks María]
+FIX: backport packaging.version import on Python 3.13 [thanks María]
+FIX: PACS plugin: better connect handling
+FIX: appstream: screenshot URL
 
 IMPROVED: EMR presentations naming (tabs/menu items) [thanks Maria]
 IMPROVED: i18n: added translatable strings [thanks Maria]
+IMPROVED: GUI: detection of dark theme [thanks Maria]
+IMPROVED: dependancy checker
+IMPROVED: PACS: support SSL connection with Orthanc PACS
 
 	1.8.21
 
@@ -2348,9 +2358,11 @@ NEW: add intake regimen support
 NEW: bootstrapper: auto-fix collations as needed
 NEW: bootstrapper: adjust view settings to security_definer (requires PG15)
 NEW: support for gender symbols stored in DB
+NEW: bootstrapper: support for connection environment variables
 
 IMPROVED: bootstrap script permissions warning
 IMRPOVED: clin.v_narrative4search: add some demographics (port from 1.8.6)
+IMPROVED: bootstrapper: code cleanup
 
 FIX: PG14 does not support IS OF anymore, use pg_typeof()
 FIX: revoke CREATE from PUBLIC on schema PUBLIC (thanks PG)
@@ -2358,6 +2370,12 @@ FIX: revoke CREATE from PUBLIC on schema PUBLIC (thanks PG)
 ------------------------------------------------
 # gnumed_v22
 ------------------------------------------------
+
+	22.32
+
+FIX: crash on bootstrapping v15+ servers [thanks Maria]
+FIX: bootstrapping: add WITH ADMIN to gm-dbo [thanks Maria]
+FIX: upgrade: add WITH ADMIN to gm-dbo [thanks Maria]
 
 	22.30
 

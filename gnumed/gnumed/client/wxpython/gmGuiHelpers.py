@@ -728,24 +728,24 @@ if __name__ == '__main__':
 		print(img.Height)
 		print(img.Width)
 	#------------------------------------------------------------------
-	def test_sql_logic_prw():
-		app = wx.PyWidgetTester(size = (200, 50))
-		cThreeValuedLogicPhraseWheel(app.frame, -1)
-		app.frame.Show(True)
-		app.MainLoop()
-
-		return True
+#	def test_sql_logic_prw():
+#		app = wx.PyWidgetTester(size = (200, 50))
+#		cThreeValuedLogicPhraseWheel(app.frame, -1)
+#		app.frame.Show(True)
+#		app.MainLoop()
+#
+#		return True
 	#------------------------------------------------------------------
-	def test_clipboard():
-		wx.PyWidgetTester(size = (200, 50))
-		result = clipboard2file()
-		if result is False:
-			print("problem opening clipboard")
-			return
-		if result is None:
-			print("no data in clipboard")
-			return
-		print("file:", result)
+#	def test_clipboard():
+#		wx.PyWidgetTester(size = (200, 50))
+#		result = clipboard2file()
+#		if result is False:
+#			print("problem opening clipboard")
+#			return
+#		if result is None:
+#			print("no data in clipboard")
+#			return
+#		print("file:", result)
 
 	#------------------------------------------------------------------
 	def test_take_screenshot():
@@ -762,10 +762,19 @@ if __name__ == '__main__':
 		print(decorate_window_title('test window'))
 
 	#------------------------------------------------------------------
+	def test_is_probably_dark_theme():
+		from Gnumed.wxpython import gmGuiTest
+		frame = gmGuiTest.setup_widget_test_env(patient = None)
+		print(frame)
+		print(is_probably_dark_theme())
+		print(is_probably_dark_theme())
+
+	#------------------------------------------------------------------
 	#test_scale_img()
 	#test_sql_logic_prw()
 	#test_clipboard()
 	#test_take_screenshot()
-	test_decorate_window_title()
+	#test_decorate_window_title()
+	test_is_probably_dark_theme()
 
 #======================================================================

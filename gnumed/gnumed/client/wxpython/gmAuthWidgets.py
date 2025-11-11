@@ -24,6 +24,12 @@ import wx
 if __name__ == '__main__':
 	sys.path.insert(0, '../../')
 	_ = lambda x:x
+else:
+	try: _
+	except NameError:
+		from Gnumed.pycommon import gmI18N
+		gmI18N.activate_locale()
+		gmI18N.install_domain()
 from Gnumed.pycommon import gmLoginInfo
 from Gnumed.pycommon import gmPG2
 from Gnumed.pycommon import gmConnectionPool
@@ -429,7 +435,7 @@ def change_gmdbowner_password():
 		dbo_account,
 		dbo_pwd_new_2
 	)
-	gmPG2.run_rw_queries(link_obj = dbo_conn, queries = [{'cmd': cmd}], end_tx = True)
+	gmPG2.run_rw_queries(link_obj = dbo_conn, queries = [{'sql': cmd}], end_tx = True)
 	return True
 
 #================================================================
@@ -885,9 +891,9 @@ For local assistance please contact:
 
 		self.backend_profile = self.__backend_profiles[self._CBOX_profile.GetValue().strip()]
 #		self.user = self._CBOX_user.GetValue().strip()
-#		self.password = self.GetPassword()
 		self.cancelled = False
 		self.parent.Close()
+
 	#----------------------------
 	def OnCancel(self, event):
 		self.cancelled = True
@@ -904,16 +910,16 @@ if __name__ == "__main__":
 	if sys.argv[1] != 'test':
 		sys.exit()
 
-	# we don't have tests yet
-	sys.exit()
-
 	logging.basicConfig(level = logging.DEBUG)
+
+	del _
+	from Gnumed.pycommon import gmI18N
+	gmI18N.activate_locale()
+	gmI18N.install_domain('gnumed')
 
 	#-----------------------------------------------
 	#-----------------------------------------------
 	def test():
-		#app = 
-		wx.PyWidgetTester(size = (300,400))
 		#show the login panel in a main window
 #		app.SetWidget(cLoginPanel, -1)
 		#and pop the login dialog up modally
@@ -924,7 +930,12 @@ if __name__ == "__main__":
 		if lp is None:
 			wx.MessageBox(_("Dialog was cancelled by user"))
 		else:
-			wx.MessageBox(_("You tried to log in as [%s] with password [%s].\nHost:%s, DB: %s, Port: %s") % (lp.GetUser(),lp.GetPassword(),lp.GetHost(),lp.GetDatabase(),lp.GetPort()))
+			wx.MessageBox(_("You tried to log in as [%s] with password [%s].\nHost:%s, DB: %s, Port: %s") % (
+				lp.GetUser(),
+				lp.GetHost(),
+				lp.GetDatabase(),
+				lp.GetPort()
+			))
 		dlg.DestroyLater()
 #		app.MainLoop()
 

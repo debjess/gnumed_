@@ -14,7 +14,6 @@ if __name__ == '__main__':
 	sys.path.insert(0, '../../')
 	_ = lambda x:x
 from Gnumed.pycommon import gmTools
-from Gnumed.pycommon import gmDateTime
 
 from Gnumed.business import gmATC
 from Gnumed.business import gmMedication
@@ -72,7 +71,7 @@ def manage_substance_abuse(parent=None, patient=None):
 			items.append ([
 				i['substance'],
 				i.use_type_string,
-				gmDateTime.pydt_strftime(i['last_checked_when'], '%b %Y', none_str = '')
+				i['last_checked_when'].strftime('%b %Y')
 			])
 		lctrl.set_string_items(items)
 		lctrl.set_data(intakes)
@@ -154,24 +153,24 @@ class cSubstanceAbuseEAPnl(wxgSubstanceAbuseEAPnl.wxgSubstanceAbuseEAPnl, gmEdit
 	def _save_as_new(self):
 
 		if self._RBTN_tobacco.GetValue() is True:
-			pk_drug_product = gmMedication.get_tobacco()['pk_drug_product']
+			pk_substance = gmMedication.get_tobacco()['pk_substance']
 
 		elif self._RBTN_c2.GetValue() is True:
-			pk_drug_product = gmMedication.get_alcohol()['pk_drug_product']
+			pk_substance = gmMedication.get_alcohol()['pk_substance']
 
 		elif self._RBTN_other_substance.GetValue() is True:
 			#xxxxxxxxx
 			#PRW_substance -> _dose
-			pk_drug_product = gmMedication.get_other_drug (
+			pk_substance = gmMedication.get_other_drug (
 				name = self._PRW_substance.GetValue().strip(),
 				pk_dose = self._PRW_substance.GetData()
-			)['pk_drug_product']
+			)['pk_substance']
 
 		pk_encounter = self.__patient.emr.active_encounter['pk_encounter']
 		intake = gmMedication.create_substance_intake (
-			pk_drug_product = pk_drug_product,
 			pk_encounter = pk_encounter,
-			pk_episode = gmMedication.create_default_medication_history_episode(encounter = pk_encounter)['pk_episode']
+			pk_episode = gmMedication.create_default_medication_history_episode(encounter = pk_encounter)['pk_episode'],
+			pk_substance = pk_substance
 		)
 
 		if self._RBTN_nonharmful_use.GetValue() is True:
@@ -293,7 +292,7 @@ class cSubstanceAbuseEAPnl(wxgSubstanceAbuseEAPnl.wxgSubstanceAbuseEAPnl, gmEdit
 
 		self._TCTRL_comment.SetValue(gmTools.coalesce(self.data['notes'], ''))
 		self._DPRW_quit_when.SetText(data = self.data['discontinued'])
-		self._LBL_confirm_date.SetLabel(gmDateTime.pydt_strftime(self.data['last_checked_when'], '%Y %b %d', none_str = ''))
+		self._LBL_confirm_date.SetLabel(self.data['last_checked_when'].strftime('%Y %b %d'))
 		self._CHBOX_confirm.Enable()
 		self._CHBOX_confirm.SetValue(True)
 

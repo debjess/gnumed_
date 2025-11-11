@@ -40,7 +40,7 @@ class cBaseConnector:
 
 		try:
 			_log.info('GNUmed slave XML-RPC server version: %s' % self.__gm_server.version())
-		except socket.error, e:
+		except socket.error as e:
 			# FIXME: differentiate between already-attached and not-there
 			_log.exception('cannot attach to GNUmed instance at https://localhost:%s: %s' % (port, e))
 			# try starting GNUmed
@@ -162,7 +162,7 @@ if __name__ == '__main__':
 
 	_cfg.add_file_source (
 		source = 'explicit',
-		file = _cfg.get(option = '--conf-file', source = [('cli', 'return')]),
+		filename = _cfg.get(option = '--conf-file', source = [('cli', 'return')]),
 		encoding = gmI18N.get_encoding()
 	)
 

@@ -279,7 +279,7 @@ def browse_incoming(parent=None):
 			'%s, %s (%s) %s' % (
 				gmTools.coalesce(i['lastnames'], ''),
 				gmTools.coalesce(i['firstnames'], ''),
-				gmDateTime.pydt_strftime(dt = i['dob'], format = '%Y %b %d', none_str = _('unknown DOB')),
+				gmDateTime.format_dob(i['dob'], format = '%Y %b %d', none_string = _('unknown DOB')),
 				gmTools.coalesce(i['gender'], '')
 			),
 			gmTools.coalesce(i['external_data_id'], ''),
@@ -393,11 +393,7 @@ def manage_measurements(parent=None, single_selection=False, emr=None, measureme
 		else:
 			results = measurements2manage
 		items = [ [
-			gmDateTime.pydt_strftime (
-				r['clin_when'],
-				'%Y %b %d %H:%M',
-				accuracy = gmDateTime.ACC_MINUTES
-			),
+			r['clin_when'].strftime('%Y %b %d %H:%M'),
 			r['unified_abbrev'],
 			'%s%s%s%s' % (
 				gmTools.bool2subst (
@@ -528,7 +524,7 @@ def get_default_gnuplot_template(parent = None):
 	return default_template
 
 #----------------------------------------------------------------
-def plot_measurements(parent=None, tests:[]=None, format:str=None, show_year:bool=True, use_default_template:bool=False) -> bool:
+def plot_measurements(parent=None, tests:list=None, format:str=None, show_year:bool=True, use_default_template:bool=False) -> bool:
 	"""Plot measurement results with GNUplot.
 
 	Args:
@@ -849,7 +845,7 @@ class cMeasurementsAsListPnl(wxgMeasurementsAsListPnl, gmRegetMixin.cRegetOnPain
 				' ' + gmTools.u_writing_hand
 			)
 			items.append ([
-				gmDateTime.pydt_strftime(r['clin_when'], '%Y %b %d  %H:%M'),
+				r['clin_when'].strftime('%Y %b %d  %H:%M'),
 				r['abbrev_tt'],
 				'%s%s%s%s' % (
 					gmTools.strip_empty_lines(text = r['unified_val'])[0],
@@ -981,7 +977,7 @@ class cMeasurementsByDayPnl(wxgMeasurementsByDayPnl, gmRegetMixin.cRegetOnPaintM
 			idx_selected_day = 0
 		dates = self.__patient.emr.get_dates_for_results(reverse_chronological = True)
 		items = [ ['%s%s' % (
-					gmDateTime.pydt_strftime(d['clin_when_day'], self.__date_format),
+					d['clin_when_day'].strftime(self.__date_format),
 					gmTools.bool2subst(d['is_reviewed'], '', gmTools.u_writing_hand, gmTools.u_writing_hand)
 				)]
 			for d in dates
@@ -1067,7 +1063,7 @@ class cMeasurementsByDayPnl(wxgMeasurementsByDayPnl, gmRegetMixin.cRegetOnPaintM
 				' ' + gmTools.u_writing_hand
 			)
 			items.append ([
-				gmDateTime.pydt_strftime(r['clin_when'], '%H:%M'),
+				r['clin_when'].strftime('%H:%M'),
 				r['abbrev_tt'],
 				'%s%s%s%s' % (
 					gmTools.strip_empty_lines(text = r['unified_val'])[0],
@@ -1233,7 +1229,7 @@ class cMeasurementsByIssuePnl(wxgMeasurementsByIssuePnl, gmRegetMixin.cRegetOnPa
 				' ' + gmTools.u_writing_hand
 			)
 			items.append ([
-				gmDateTime.pydt_strftime(r['clin_when'], '%Y %b %d  %H:%M'),
+				r['clin_when'].strftime('%Y %b %d  %H:%M'),
 				r['abbrev_tt'],
 				'%s%s%s%s' % (
 					gmTools.strip_empty_lines(text = r['unified_val'])[0],
@@ -1486,7 +1482,7 @@ class cMeasurementsAsMostRecentListPnl(wxgMeasurementsAsMostRecentListPnl, gmReg
 				)
 				result_when = _('%s ago (%s)') % (
 					gmDateTime.format_interval_medically(interval = gmDateTime.pydt_now_here() - r['clin_when']),
-					gmDateTime.pydt_strftime(r['clin_when'], '%Y %b %d  %H:%M')
+					r['clin_when'].strftime('%Y %b %d  %H:%M')
 				)
 				range_info = gmTools.coalesce (
 					r.formatted_clinical_range,
@@ -1916,8 +1912,10 @@ class cMeasurementsGrid(wx.grid.Grid):
 		self.__prev_row = None
 		self.__prev_col = None
 		self.__prev_label_row = None
-		self.__date_format = str((_('lab_grid_date_format::%Y\n%b %d')).lstrip('lab_grid_date_format::'))
-
+		self.__date_format = gmTools.strip_prefix (
+			_('lab_grid_date_format::%Y\n%b %d'),
+			'lab_grid_date_format'
+		).lstrip(':')
 		self.__init_ui()
 		self.__register_events()
 
@@ -2112,7 +2110,7 @@ class cMeasurementsGrid(wx.grid.Grid):
 			tests = test_pks2show,
 			reverse_chronological = True
 		)]
-		col_labels = [ gmDateTime.pydt_strftime(date, self.__date_format) for date in self.__col_label_data ]
+		col_labels = [ date.strftime(self.__date_format) for date in self.__col_label_data ]
 
 		results = emr.get_test_results_by_date (
 			tests = test_pks2show,
@@ -2137,7 +2135,7 @@ class cMeasurementsGrid(wx.grid.Grid):
 				gmTools.bool2subst(result['is_fake_meta_type'], '', gmTools.u_sum, ''),
 				result['unified_abbrev']
 			))
-			col_idx = col_labels.index(gmDateTime.pydt_strftime(result['clin_when'], self.__date_format))
+			col_idx = col_labels.index(result['clin_when'].strftime(self.__date_format))
 
 			try:
 				self.__cell_data[col_idx]
@@ -2836,7 +2834,7 @@ class cMeasurementsReviewDlg(wxgMeasurementsReviewDlg.wxgMeasurementsReviewDlg):
 						t['unified_abbrev'],
 						t['unified_val'],
 						t['val_unit'],
-						gmDateTime.pydt_strftime(t['clin_when'], '%Y %b %d')
+						t['clin_when'].strftime('%Y %b %d')
 					) for t in tests
 				]
 			)
@@ -4883,21 +4881,21 @@ if __name__ == '__main__':
 	gmDateTime.init()
 
 	#------------------------------------------------------------
-	def test_grid():
-		pat = gmPersonSearch.ask_for_patient()
-		app = wx.PyWidgetTester(size = (500, 300))
-		lab_grid = cMeasurementsGrid(app.frame, -1)
-		lab_grid.patient = pat
-		app.frame.Show()
-		app.MainLoop()
+	#def test_grid():
+		#pat = gmPersonSearch.ask_for_patient()
+		#app = wx.PyWidgetTester(size = (500, 300))
+		#lab_grid = cMeasurementsGrid(app.frame, -1)
+		#lab_grid.patient = pat
+		#app.frame.Show()
+		#app.MainLoop()
 	#------------------------------------------------------------
 	def test_test_ea_pnl():
 		pat = gmPersonSearch.ask_for_patient()
 		gmPatSearchWidgets.set_active_patient(patient=pat)
-		app = wx.PyWidgetTester(size = (500, 300))
-		cMeasurementEditAreaPnl(app.frame, -1)
-		app.frame.Show()
-		app.MainLoop()
+		#app = wx.PyWidgetTester(size = (500, 300))
+		#cMeasurementEditAreaPnl(app.frame, -1)
+		#app.frame.Show()
+		#app.MainLoop()
 
 	#------------------------------------------------------------
 	def test_print_results():

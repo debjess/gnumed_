@@ -21,18 +21,19 @@ if __name__ == '__main__':
 # GNUmed libs
 from Gnumed.pycommon import gmDispatcher
 from Gnumed.pycommon import gmTools
-from Gnumed.pycommon import gmDateTime
 from Gnumed.pycommon import gmLog2
 
 from Gnumed.exporters import gmPatientExporter
 
 from Gnumed.business import gmGenericEMRItem
-from Gnumed.business import gmEMRStructItems
+from Gnumed.business import gmHealthIssue
+from Gnumed.business import gmEncounter
 from Gnumed.business import gmPerson
 from Gnumed.business import gmGender
 from Gnumed.business import gmPersonSearch
 from Gnumed.business import gmSoapDefs
 from Gnumed.business import gmClinicalRecord
+from Gnumed.business import gmEpisode
 
 from Gnumed.wxpython import gmGuiHelpers
 from Gnumed.wxpython import gmEMRStructWidgets
@@ -197,11 +198,11 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 			gmLog2.log_stack_trace()
 			return 'invalid item'
 
-		if isinstance(node_data, gmEMRStructItems.cHealthIssue):
+		if isinstance(node_data, gmHealthIssue.cHealthIssue):
 			return 'issue::%s' % node_data['pk_health_issue']
-		if isinstance(node_data, gmEMRStructItems.cEpisode):
+		if isinstance(node_data, gmEpisode.cEpisode):
 			return 'episode::%s' % node_data['pk_episode']
-		if isinstance(node_data, gmEMRStructItems.cEncounter):
+		if isinstance(node_data, gmEncounter.cEncounter):
 			return 'encounter::%s' % node_data['pk_encounter']
 		# unassociated episodes
 		if isinstance(node_data, dict):
@@ -281,7 +282,7 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 			template = ' %s - %s (%s)\n\n'
 			self.__root_tooltip += template % (
 				self.__pat.get_formatted_dob(format = '%d.%b %Y'),
-				gmDateTime.pydt_strftime(self.__pat['deceased'], '%Y %b %d'),
+				self.__pat['deceased'].strftime('%Y %b %d'),
 				self.__pat.medical_age
 			)
 		self.__root_tooltip += gmTools.coalesce(self.__pat['comment'], '', '%s\n\n')
@@ -340,7 +341,7 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 			_log.error('node attributes: %s', dir(self.__curr_node))
 			gmLog2.log_stack_trace()
 
-		if isinstance(node_data, gmEMRStructItems.cHealthIssue):
+		if isinstance(node_data, gmHealthIssue.cHealthIssue):
 			self.__update_text_for_issue_node(node_data)
 			return
 
@@ -349,11 +350,11 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 			self.__update_text_for_pseudo_issue_node(node_data)
 			return
 
-		if isinstance(node_data, gmEMRStructItems.cEpisode):
+		if isinstance(node_data, gmEpisode.cEpisode):
 			self.__update_text_for_episode_node(node_data)
 			return
 
-		if isinstance(node_data, gmEMRStructItems.cEncounter):
+		if isinstance(node_data, gmEncounter.cEncounter):
 			self.__update_text_for_encounter_node(node_data)
 			return
 
@@ -456,15 +457,15 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 	def __show_context_menu(self, pos=wx.DefaultPosition):
 		self.__curr_node_data = self.GetItemData(self.__curr_node)
 
-		if isinstance(self.__curr_node_data, gmEMRStructItems.cHealthIssue):
+		if isinstance(self.__curr_node_data, gmHealthIssue.cHealthIssue):
 			self.PopupMenu(self.__issue_context_popup, pos)
 			return True
 
-		if isinstance(self.__curr_node_data, gmEMRStructItems.cEpisode):
+		if isinstance(self.__curr_node_data, gmEpisode.cEpisode):
 			self.PopupMenu(self.__epi_context_popup, pos)
 			return True
 
-		if isinstance(self.__curr_node_data, gmEMRStructItems.cEncounter):
+		if isinstance(self.__curr_node_data, gmEncounter.cEncounter):
 			self.PopupMenu(self.__enc_context_popup, pos)
 			return True
 
@@ -526,7 +527,7 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 		if result != wx.ID_YES:
 			return
 
-		if not gmEMRStructItems.delete_episode(episode = self.__curr_node_data):
+		if not gmEpisode.delete_episode(episode = self.__curr_node_data):
 			gmDispatcher.send(signal = 'statustext', msg = _('Cannot delete episode. There is still clinical data recorded for it.'))
 
 	#--------------------------------------------------------
@@ -730,7 +731,7 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 	#--------------------------------------------------------
 	def __calc_encounter_tooltip(self, encounter):
 		tt = '%s  %s  %s - %s\n' % (
-			gmDateTime.pydt_strftime(encounter['started'], '%Y %b %d'),
+			encounter['started'].strftime('%Y %b %d'),
 			encounter['l10n_type'],
 			encounter['started'].strftime('%H:%M'),
 			encounter['last_affirmed'].strftime('%H:%M')
@@ -821,7 +822,7 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 
 		dlg.DestroyLater()
 
-		if not gmEMRStructItems.delete_health_issue(health_issue = self.__curr_node_data):
+		if not gmHealthIssue.delete_health_issue(health_issue = self.__curr_node_data):
 			gmDispatcher.send(signal = 'statustext', msg = _('Cannot delete health issue. There is still clinical data recorded for it.'))
 
 	#--------------------------------------------------------
@@ -1189,11 +1190,11 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 
 		node_data = self.GetItemData(node)
 
-		if isinstance(node_data, gmEMRStructItems.cHealthIssue):
+		if isinstance(node_data, gmHealthIssue.cHealthIssue):
 			self.__expand_issue_node(issue_node = node)
 			return
 
-		if isinstance(node_data, gmEMRStructItems.cEpisode):
+		if isinstance(node_data, gmEpisode.cEpisode):
 			self.__expand_episode_node(episode_node = node)
 			return
 
@@ -1202,7 +1203,7 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 			self.__expand_pseudo_issue_node(fake_issue_node = node)
 			return
 
-		if isinstance(node_data, gmEMRStructItems.cEncounter):
+		if isinstance(node_data, gmEncounter.cEncounter):
 			self.__expand_encounter_node(encounter_node = node)
 			return
 
@@ -1233,11 +1234,11 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 #			if flags == wx.TREE_HITTEST_ONITEMLABEL:
 #				data = self.GetItemData(item)
 #
-#				if not isinstance(data, gmEMRStructItems.cEncounter):
+#				if not isinstance(data, gmEncounter.cEncounter):
 #					return
 #
 #				self.SetToolTip(u'%s  %s  %s - %s\n\nRFE: %s\nAOE: %s' % (
-#					gmDateTime.pydt_strftime(data['started'], '%Y %b %d'),
+#					gmDateTime.py--dt_strftime(data['started'], '%Y %b %d'),
 #					data['l10n_type'],
 #					data['started'].strftime('%H:%m'),
 #					data['last_affirmed'].strftime('%H:%m'),
@@ -1254,11 +1255,11 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 			return
 
 		data = self.GetItemData(item)
-		if isinstance(data, gmEMRStructItems.cEncounter):
+		if isinstance(data, gmEncounter.cEncounter):
 			tt = self.__calc_encounter_tooltip(data)
-		elif isinstance(data, gmEMRStructItems.cEpisode):
+		elif isinstance(data, gmEpisode.cEpisode):
 			tt = self.__calc_episode_tooltip(data)
-		elif isinstance(data, gmEMRStructItems.cHealthIssue):
+		elif isinstance(data, gmHealthIssue.cHealthIssue):
 			tt = self.__calc_issue_tooltip(data)
 		else:
 			tt = self.__root_tooltip
@@ -1318,7 +1319,7 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 			return 1
 
 		# encounters: reverse chronologically
-		if isinstance(item1, gmEMRStructItems.cEncounter):
+		if isinstance(item1, gmEncounter.cEncounter):
 			if item1['started'] == item2['started']:
 				return 0
 			if item1['started'] > item2['started']:
@@ -1326,7 +1327,7 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 			return 1
 
 		# episodes: open, then reverse chronologically
-		if isinstance(item1, gmEMRStructItems.cEpisode):
+		if isinstance(item1, gmEpisode.cEpisode):
 			# open episodes first
 			if item1['episode_open']:
 				return -1
@@ -1341,7 +1342,7 @@ class cEMRTree(wx.TreeCtrl, treemixin.ExpansionState):
 			return -1
 
 		# issues: alpha by grouping, no grouping at the bottom
-		if isinstance(item1, gmEMRStructItems.cHealthIssue):
+		if isinstance(item1, gmHealthIssue.cHealthIssue):
 
 			# no grouping below grouping
 			if item1['grouping'] is None:
@@ -1665,9 +1666,9 @@ class cEMRListJournalPluginPnl(wxgEMRListJournalPluginPnl.wxgEMRListJournalPlugi
 			soap_cat = gmSoapDefs.soap_cat2l10n[entry['soap_cat']]
 			who = '%s (%s)' % (entry['modified_by'], entry['date_modified'])
 			try:
-				entry_date = gmDateTime.pydt_strftime(entry[date_fields[0]], '%Y-%m-%d')
+				entry_date = entry[date_fields[0]].strftime('%Y-%m-%d')
 			except KeyError:
-				entry_date = gmDateTime.pydt_strftime(entry[date_fields[1]], '%Y-%m-%d')
+				entry_date = entry[date_fields[1]].strftime('%Y-%m-%d')
 			if entry_date == prev_date:
 				date2show = ''
 			else:
@@ -1726,8 +1727,8 @@ class cEMRListJournalPluginPnl(wxgEMRListJournalPluginPnl.wxgEMRListJournalPlugi
 			enc_duration = gmTools.u_diameter
 		else:
 			enc_duration = '%s - %s' % (
-				gmDateTime.pydt_strftime(entry['encounter_started'], '%Y %b %d  %H:%M'),
-				gmDateTime.pydt_strftime(entry['encounter_last_affirmed'], '%H:%M')
+				entry['encounter_started'].strftime('%Y %b %d  %H:%M'),
+				entry['encounter_last_affirmed'].strftime('%H:%M')
 			)
 		self.__data[entry['src_table']][entry['src_pk']]['formatted_header'] = _(
 			'Chart entry: %s       [#%s in %s]\n'

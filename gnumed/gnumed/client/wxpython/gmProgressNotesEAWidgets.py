@@ -16,13 +16,13 @@ if __name__ == '__main__':
 	_ = lambda x:x
 
 from Gnumed.pycommon import gmDispatcher
-from Gnumed.pycommon import gmDateTime
 from Gnumed.pycommon import gmCfgDB
 
 from Gnumed.business import gmPerson
 from Gnumed.business import gmPraxis
-from Gnumed.business import gmEMRStructItems
+from Gnumed.business import gmHealthIssue
 from Gnumed.business import gmClinNarrative
+from Gnumed.business import gmEpisode
 
 from Gnumed.wxpython import gmGuiHelpers
 from Gnumed.wxpython import gmTextCtrl
@@ -127,13 +127,7 @@ class cProgressNotesEAPnl(gmTextCtrl.cExpandoTextCtrlHandling_PanelMixin, wxgPro
 			return
 
 		# episode-level problem
-		caption = _('Synopsis (%s)') % (
-			gmDateTime.pydt_strftime (
-				self.problem['modified_when'],
-				format = '%B %Y',
-				accuracy = gmDateTime.ACC_DAYS
-			)
-		)
+		caption = _('Synopsis (%s)') % self.problem['modified_when'].strftime('%B %Y')
 		self._LBL_summary.SetLabel(caption)
 
 		if self.problem['summary'] is not None:
@@ -190,7 +184,7 @@ class cProgressNotesEAPnl(gmTextCtrl.cExpandoTextCtrlHandling_PanelMixin, wxgPro
 			episode = None
 		else:
 			issue = self.problem['pk_health_issue']
-			episode = gmEMRStructItems.cEpisode.from_problem(self.problem)
+			episode = gmEpisode.cEpisode.from_problem(self.problem)
 
 		wx.CallAfter (
 			gmVisualProgressNoteWidgets.edit_visual_progress_note,
@@ -214,7 +208,7 @@ class cProgressNotesEAPnl(gmTextCtrl.cExpandoTextCtrlHandling_PanelMixin, wxgPro
 				return False
 		# existing episode
 		else:
-			episode = gmEMRStructItems.cEpisode.from_problem(self.problem)
+			episode = gmEpisode.cEpisode.from_problem(self.problem)
 
 		if encounter is None:
 			encounter = emr.current_encounter['pk_encounter']
@@ -256,7 +250,7 @@ class cProgressNotesEAPnl(gmTextCtrl.cExpandoTextCtrlHandling_PanelMixin, wxgPro
 				'(which will become a new, unassociated episode):\n'
 			)
 		else:
-			issue = gmEMRStructItems.cHealthIssue.from_problem(self.problem)
+			issue = gmHealthIssue.cHealthIssue.from_problem(self.problem)
 			msg = _(
 				'Enter a short working name for this new\n'
 				'episode under the existing health issue\n'
@@ -290,7 +284,7 @@ class cProgressNotesEAPnl(gmTextCtrl.cExpandoTextCtrlHandling_PanelMixin, wxgPro
 		new_episode.save()
 
 		if self.problem is not None:
-			issue = gmEMRStructItems.cHealthIssue.from_problem(self.problem)
+			issue = gmHealthIssue.cHealthIssue.from_problem(self.problem)
 			if not gmEMRStructWidgets.move_episode_to_issue(episode = new_episode, target_issue = issue, save_to_backend = True):
 				gmGuiHelpers.gm_show_warning (
 					_(
@@ -401,15 +395,15 @@ if __name__ == '__main__':
 	if sys.argv[1] != 'test':
 		sys.exit()
 
-	from Gnumed.wxpython import gmPersonSearch
+#	from Gnumed.business import gmPersonSearch
 
 	#----------------------------------------
-	def test_cProgressNotesEAPnl():
-		gmPersonSearch.ask_for_patient()
-		application = wx.PyWidgetTester(size=(800,500))
-		#soap_input = cProgressNotesEAPnl(application.frame, -1)
-		application.frame.Show(True)
-		application.MainLoop()
+#	def test_cProgressNotesEAPnl():
+#		gmPersonSearch.ask_for_patient()
+#		application = wx.PyWidgetTester(size=(800,500))
+#		#soap_input = cProgressNotesEAPnl(application.frame, -1)
+#		application.frame.Show(True)
+#		application.MainLoop()
 	#----------------------------------------
 
-	test_cProgressNotesEAPnl()
+#	test_cProgressNotesEAPnl()

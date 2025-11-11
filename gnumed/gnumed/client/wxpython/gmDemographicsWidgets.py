@@ -756,8 +756,6 @@ class cGenderDefEAPnl(wxgGenderDefEAPnl.wxgGenderDefEAPnl, gmEditArea.cGenericEd
 		# will ignore an existing 'data' key
 		pass
 
-	#----------------------------------------------------------------
-
 #------------------------------------------------------------
 # widget code
 #------------------------------------------------------------
@@ -831,9 +829,6 @@ def manage_gender_definitions(parent):
 		delete_callback = delete,
 		list_tooltip_callback = get_tooltip
 	)
-
-#------------------------------------------------------------
-# remember to add in clinical item generic workflows and generic clinical item formatting
 
 #------------------------------------------------------------
 # phrasewheels
@@ -918,7 +913,7 @@ class cGenderSelectionPhraseWheel(gmPhraseWheel.cPhraseWheel):
 				SELECT tag, l10n_name
 				from dem.v_gender_defs
 				order by l10n_name"""
-			rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd}])
+			rows = gmPG2.run_ro_queries(queries = [{'sql': cmd}])
 			cGenderSelectionPhraseWheel._gender_map = {}
 			for gender in rows:
 				cGenderSelectionPhraseWheel._gender_map[gender['tag']] = {
@@ -1089,14 +1084,15 @@ class cExternalIDEditAreaPnl(wxgExternalIDEditAreaPnl.wxgExternalIDEditAreaPnl, 
 		Matches are fetched from existing records in backend.
 		"""
 		pk_curr_type = self._PRW_type.GetData()
-		if pk_curr_type is None:
+		if not pk_curr_type:
 			return True
-		rows = gmPG2.run_ro_queries(queries = [{
-			'cmd': "SELECT issuer FROM dem.enum_ext_id_types WHERE pk = %s",
-			'args': [pk_curr_type]
-		}])
-		if len(rows) == 0:
+
+		SQL = 'SELECT issuer FROM dem.enum_ext_id_types WHERE pk = %(pk)s'
+		args = {'pk': pk_curr_type}
+		rows = gmPG2.run_ro_queries(queries = [{'sql': SQL, 'args': args}])
+		if not rows:
 			return True
+
 		wx.CallAfter(self._PRW_issuer.SetText, rows[0][0])
 		return True
 
@@ -2034,44 +2030,44 @@ if __name__ == "__main__":
 	from Gnumed.wxpython import gmGuiTest
 
 	#--------------------------------------------------------
-	def test_organizer_pnl():
-		app = wx.PyWidgetTester(size = (600, 400))
-		app.SetWidget(cKOrganizerSchedulePnl)
-		app.MainLoop()
+#	def test_organizer_pnl():
+#		app = wx.PyWidgetTester(size = (600, 400))
+#		app.SetWidget(cKOrganizerSchedulePnl)
+#		app.MainLoop()
 	#--------------------------------------------------------
-	def test_person_names_pnl():
-		app = wx.PyWidgetTester(size = (600, 400))
-		widget = cPersonNamesManagerPnl(app.frame, -1)
-		widget.identity = activate_patient()
-		app.frame.Show(True)
-		app.MainLoop()
+#	def test_person_names_pnl():
+#		app = wx.PyWidgetTester(size = (600, 400))
+#		widget = cPersonNamesManagerPnl(app.frame, -1)
+#		widget.identity = activate_patient()
+#		app.frame.Show(True)
+#		app.MainLoop()
 	#--------------------------------------------------------
-	def test_person_ids_pnl():
-		app = wx.PyWidgetTester(size = (600, 400))
-		widget = cPersonIDsManagerPnl(app.frame, -1)
-		widget.identity = activate_patient()
-		app.frame.Show(True)
-		app.MainLoop()
+#	def test_person_ids_pnl():
+#		app = wx.PyWidgetTester(size = (600, 400))
+#		widget = cPersonIDsManagerPnl(app.frame, -1)
+#		widget.identity = activate_patient()
+#		app.frame.Show(True)
+#		app.MainLoop()
 	#--------------------------------------------------------
-	def test_pat_ids_pnl():
-		app = wx.PyWidgetTester(size = (600, 400))
-		widget = cPersonIdentityManagerPnl(app.frame, -1)
-		widget.identity = activate_patient()
-		app.frame.Show(True)
-		app.MainLoop()
+#	def test_pat_ids_pnl():
+#		app = wx.PyWidgetTester(size = (600, 400))
+#		widget = cPersonIdentityManagerPnl(app.frame, -1)
+#		widget.identity = activate_patient()
+#		app.frame.Show(True)
+#		app.MainLoop()
 	#--------------------------------------------------------
-	def test_name_ea_pnl():
-		app = wx.PyWidgetTester(size = (600, 400))
-		app.SetWidget(cPersonNameEAPnl, name = activate_patient().get_active_name())
-		app.MainLoop()
+#	def test_name_ea_pnl():
+#		app = wx.PyWidgetTester(size = (600, 400))
+#		app.SetWidget(cPersonNameEAPnl, name = activate_patient().get_active_name())
+#		app.MainLoop()
 	#--------------------------------------------------------
-	def test_cPersonDemographicsEditorNb():
-		app = wx.PyWidgetTester(size = (600, 400))
-		widget = cPersonDemographicsEditorNb(app.frame, -1)
-		widget.identity = activate_patient()
-		widget.refresh()
-		app.frame.Show(True)
-		app.MainLoop()
+#	def test_cPersonDemographicsEditorNb():
+#		app = wx.PyWidgetTester(size = (600, 400))
+#		widget = cPersonDemographicsEditorNb(app.frame, -1)
+#		widget.identity = activate_patient()
+#		widget.refresh()
+#		app.frame.Show(True)
+#		app.MainLoop()
 	#--------------------------------------------------------
 	def activate_patient():
 		patient = gmPersonSearch.ask_for_patient()

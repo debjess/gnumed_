@@ -11,16 +11,16 @@ import datetime as pydt
 
 if __name__ == '__main__':
 	sys.path.insert(0, '../../')
-
-from Gnumed.pycommon import gmI18N
-from Gnumed.pycommon import gmDateTime
-
-if __name__ == '__main__':
 	_ = lambda x:x
-	gmI18N.activate_locale()
-	gmI18N.install_domain()
-	gmDateTime.init()
+else:
+	try:
+		_
+	except NameError:
+		from Gnumed.pycommon import gmI18N
+		gmI18N.activate_locale()
+		gmI18N.install_domain()
 
+from Gnumed.pycommon import gmDateTime
 from Gnumed.pycommon import gmExceptions
 from Gnumed.pycommon import gmPG2
 from Gnumed.pycommon import gmDispatcher
@@ -33,13 +33,18 @@ from Gnumed.business import gmPathLab
 from Gnumed.business import gmLOINC
 from Gnumed.business import gmClinNarrative
 from Gnumed.business import gmSoapDefs
-from Gnumed.business import gmEMRStructItems
+from Gnumed.business import gmHealthIssue
+from Gnumed.business import gmEncounter
+from Gnumed.business import gmEpisode
+from Gnumed.business import gmProblem
 from Gnumed.business import gmMedication
 from Gnumed.business import gmVaccination
 from Gnumed.business import gmFamilyHistory
 from Gnumed.business import gmExternalCare
 from Gnumed.business import gmOrganization
 from Gnumed.business import gmAutoHints
+from Gnumed.business import gmPerformedProcedure
+from Gnumed.business import gmHospitalStay
 from Gnumed.business.gmDemographicRecord import get_occupations
 
 
@@ -66,17 +71,17 @@ from Gnumed.business.gmDocuments import cDocument
 from Gnumed.business.gmProviderInbox import cInboxMessage
 
 _map_table2class = {
-	'clin.encounter': gmEMRStructItems.cEncounter,
-	'clin.episode': gmEMRStructItems.cEpisode,
-	'clin.health_issue': gmEMRStructItems.cHealthIssue,
+	'clin.encounter': gmEncounter.cEncounter,
+	'clin.episode': gmEpisode.cEpisode,
+	'clin.health_issue': gmHealthIssue.cHealthIssue,
 	'clin.external_care': gmExternalCare.cExternalCareItem,
 	'clin.vaccination': gmVaccination.cVaccination,
 	'clin.clin_narrative': gmClinNarrative.cNarrative,
 	'clin.test_result': gmPathLab.cTestResult,
 	'clin.substance_intake': gmMedication.cSubstanceIntakeEntry,
 	'clin.intake_regimen': gmMedication.cIntakeRegimen,
-	'clin.hospital_stay': gmEMRStructItems.cHospitalStay,
-	'clin.procedure': gmEMRStructItems.cPerformedProcedure,
+	'clin.hospital_stay': gmHospitalStay.cHospitalStay,
+	'clin.procedure': gmPerformedProcedure.cPerformedProcedure,
 	'clin.allergy': gmAllergy.cAllergy,
 	'clin.allergy_state': gmAllergy.cAllergyState,
 	'clin.family_history': gmFamilyHistory.cFamilyHistory,
@@ -185,7 +190,7 @@ class cClinicalRecord(object):
 			action = 'EMR access for pk_identity [%s]' % self.pk_patient
 		args = {'action': action}
 		cmd = 'SELECT gm.log_access2emr(%(action)s)'
-		gmPG2.run_rw_queries(queries = [{'cmd': cmd, 'args': args}])
+		gmPG2.run_rw_queries(queries = [{'sql': cmd, 'args': args}])
 
 	#--------------------------------------------------------
 	def _get_calculator(self):
@@ -243,7 +248,7 @@ class cClinicalRecord(object):
 
 		# get the current encounter as an extra instance
 		# from the database to check for changes
-		curr_enc_in_db = gmEMRStructItems.cEncounter(aPK_obj = self.current_encounter['pk_encounter'])
+		curr_enc_in_db = gmEncounter.cEncounter(aPK_obj = self.current_encounter['pk_encounter'])
 
 		# the encounter just retrieved and the active encounter
 		# have got the same transaction ID so there's no change
@@ -292,6 +297,54 @@ class cClinicalRecord(object):
 		return True
 
 	#--------------------------------------------------------
+	# API: export
+	#--------------------------------------------------------
+	def export_care_structure(self, filename:str=None) -> str:
+
+		lines = []
+		patient = self.patient
+		lines.append('patient [%s]' % patient.description_gender)
+		for issue in self.health_issues:
+			lines.append('')
+			lines.append('')
+			lines.append('issue [%s] #%s' % (issue['description'], issue['pk_health_issue']))
+			lines.append(' is active     : %s' % issue['is_active'])
+			lines.append(' has open epi  : %s' % issue['has_open_episode'])
+			lines.append(' possible start: %s' % issue.possible_start_date)
+			lines.append(' safe start    : %s' % issue.safe_start_date)
+			end = issue.clinical_end_date
+			if end:
+				lines.append(' end           : %s' % end)
+			else:
+				lines.append(' end           : active and/or open episode')
+			lines.append(' latest access : %s' % issue.latest_access_date)
+			first = issue.first_episode
+			if first:
+				first = first['description']
+			lines.append(' 1st episode   : %s' % first)
+			last = issue.latest_episode
+			if last:
+				last = last['description']
+			lines.append(' latest episode: %s' % last)
+			epis = sorted(issue.get_episodes(), key = lambda e: e.best_guess_clinical_start_date)
+			for epi in epis:
+				lines.append('')
+				lines.append(' episode [%s] #%s' % (epi['description'], epi['pk_episode']))
+				lines.append('  is open         : %s' % epi['episode_open'])
+				lines.append('  best guess start: %s' % epi.best_guess_clinical_start_date)
+				lines.append('  best guess end  : %s' % epi.best_guess_clinical_end_date)
+				lines.append('  latest access   : %s' % epi.latest_access_date)
+				lines.append('  start 1st enc   : %s' % epi['started_first'])
+				lines.append('  start last enc  : %s' % epi['started_last'])
+				lines.append('  end last enc    : %s' % epi['last_affirmed'])
+
+		if not filename:
+			filename = gmTools.get_unique_filename(prefix = 'gm-emr_struct-%s-' % patient.subdir_name, suffix = '.txt')
+		with open(filename, 'w+', encoding = 'utf8') as f:
+			f.write('\n'.join(lines))
+		return filename
+
+	#--------------------------------------------------------
 	# API: family history
 	#--------------------------------------------------------
 	def get_family_history(self, episodes=None, issues=None, encounters=None):
@@ -328,7 +381,7 @@ class cClinicalRecord(object):
 			return self.__gender
 		cmd = 'SELECT gender, dob FROM dem.v_all_persons WHERE pk_identity = %(pat)s'
 		args = {'pat': self.pk_patient}
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		self.__gender = rows[0]['gender']
 		self.__dob = rows[0]['dob']
 
@@ -343,7 +396,7 @@ class cClinicalRecord(object):
 			return self.__dob
 		cmd = 'SELECT gender, dob FROM dem.v_all_persons WHERE pk_identity = %(pat)s'
 		args = {'pat': self.pk_patient}
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		self.__gender = rows[0]['gender']
 		self.__dob = rows[0]['dob']
 
@@ -356,7 +409,7 @@ class cClinicalRecord(object):
 	def _get_EDC(self):
 		cmd = 'SELECT edc FROM clin.patient WHERE fk_identity = %(pat)s'
 		args = {'pat': self.pk_patient}
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		if len(rows) == 0:
 			return None
 		return rows[0]['edc']
@@ -371,10 +424,10 @@ class cClinicalRecord(object):
 			)
 			RETURNING pk"""
 		args = {'pat': self.pk_patient, 'edc': edc}
-		rows = gmPG2.run_rw_queries(queries = [{'cmd': cmd, 'args': args}], return_data = True)
+		rows = gmPG2.run_rw_queries(queries = [{'sql': cmd, 'args': args}], return_data = True)
 		if len(rows) == 0:
 			cmd = 'UPDATE clin.patient SET edc = %(edc)s WHERE fk_identity = %(pat)s'
-			gmPG2.run_rw_queries(queries = [{'cmd': cmd, 'args': args}])
+			gmPG2.run_rw_queries(queries = [{'sql': cmd, 'args': args}])
 
 	EDC = property(_get_EDC, _set_EDC)
 
@@ -410,7 +463,7 @@ class cClinicalRecord(object):
 	#--------------------------------------------------------
 	def get_performed_procedures(self, episodes=None, issues=None):
 
-		procs = gmEMRStructItems.get_performed_procedures(patient = self.pk_patient)
+		procs = gmPerformedProcedure.get_performed_procedures(patient = self.pk_patient)
 
 		if episodes is not None:
 			procs = [ p for p in procs if p['pk_episode'] in episodes ]
@@ -421,31 +474,36 @@ class cClinicalRecord(object):
 		return procs
 
 	performed_procedures = property(get_performed_procedures)
+
 	#--------------------------------------------------------
 	def get_latest_performed_procedure(self):
-		return gmEMRStructItems.get_latest_performed_procedure(patient = self.pk_patient)
+		return gmPerformedProcedure.get_latest_performed_procedure(patient = self.pk_patient)
+
+	latest_performed_procedure = property(get_latest_performed_procedure)
+
 	#--------------------------------------------------------
 	def add_performed_procedure(self, episode=None, location=None, hospital_stay=None, procedure=None):
-		return gmEMRStructItems.create_performed_procedure (
+		return gmPerformedProcedure.create_performed_procedure (
 			encounter = self.current_encounter['pk_encounter'],
 			episode = episode,
 			location = location,
 			hospital_stay = hospital_stay,
 			procedure = procedure
 		)
+
 	#--------------------------------------------------------
 	def get_procedure_locations_as_org_units(self):
 		where = 'pk_org_unit IN (SELECT DISTINCT pk_org_unit FROM clin.v_procedures_not_at_hospital WHERE pk_patient = %(pat)s)'
 		args = {'pat': self.pk_patient}
 		cmd = gmOrganization._SQL_get_org_unit % where
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		return [ gmOrganization.cOrgUnit(row = {'pk_field': 'pk_org_unit', 'data': r}) for r in rows ]
 
 	#--------------------------------------------------------
 	# API: hospitalizations
 	#--------------------------------------------------------
 	def get_hospital_stays(self, episodes=None, issues=None, ongoing_only=False):
-		stays = gmEMRStructItems.get_patient_hospital_stays(patient = self.pk_patient, ongoing_only = ongoing_only)
+		stays = gmHospitalStay.get_patient_hospital_stays(patient = self.pk_patient, ongoing_only = ongoing_only)
 		if episodes is not None:
 			stays = [ s for s in stays if s['pk_episode'] in episodes ]
 		if issues is not None:
@@ -453,16 +511,21 @@ class cClinicalRecord(object):
 		return stays
 
 	hospital_stays = property(get_hospital_stays)
+
 	#--------------------------------------------------------
 	def get_latest_hospital_stay(self):
-		return gmEMRStructItems.get_latest_patient_hospital_stay(patient = self.pk_patient)
+		return gmHospitalStay.get_latest_patient_hospital_stay(patient = self.pk_patient)
+
+	latest_hospital_stay = property(get_latest_hospital_stay)
+
 	#--------------------------------------------------------
-	def add_hospital_stay(self, episode=None, fk_org_unit=None):
-		return gmEMRStructItems.create_hospital_stay (
+	def add_hospital_stay(self, episode:int=None, fk_org_unit:int=None):
+		return gmHospitalStay.create_hospital_stay (
 			encounter = self.current_encounter['pk_encounter'],
 			episode = episode,
 			fk_org_unit = fk_org_unit
 		)
+
 	#--------------------------------------------------------
 	def get_hospital_stay_stats_by_hospital(self, cover_period=None):
 		args = {'pat': self.pk_patient, 'range': cover_period}
@@ -479,14 +542,15 @@ class cClinicalRecord(object):
 			ORDER BY frequency DESC
 		""" % ' AND '.join(where_parts)
 
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		return rows
+
 	#--------------------------------------------------------
 	def get_attended_hospitals_as_org_units(self):
 		where = 'pk_org_unit IN (SELECT DISTINCT pk_org_unit FROM clin.v_hospital_stays WHERE pk_patient = %(pat)s)'
 		args = {'pat': self.pk_patient}
 		cmd = gmOrganization._SQL_get_org_unit % where
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		return [ gmOrganization.cOrgUnit(row = {'pk_field': 'pk_org_unit', 'data': r}) for r in rows ]
 
 	#--------------------------------------------------------
@@ -507,17 +571,21 @@ class cClinicalRecord(object):
 		return True
 
 	#--------------------------------------------------------
-	def add_clin_narrative(self, note='', soap_cat='s', episode=None, link_obj=None):
+	def add_clin_narrative(self, note:str='', soap_cat:str='s', episode:gmEpisode.cEpisode=None, pk_episode:int=None, link_obj=None):
+		if episode and pk_episode:
+			assert episode['pk_episode'] == pk_episode, 'must not pass in <episode> AND <pk_episode> unless equal'
+
 		if note.strip() == '':
 			_log.info('will not create empty clinical note')
 			return None
-		if isinstance(episode, gmEMRStructItems.cEpisode):
-			episode = episode['pk_episode']
+
+		if episode:
+			pk_episode = episode['pk_episode']
 		instance = gmClinNarrative.create_narrative_item (
 			link_obj = link_obj,
 			narrative = note,
 			soap_cat = soap_cat,
-			episode_id = episode,
+			episode_id = pk_episode,
 			encounter_id = self.current_encounter['pk_encounter']
 		)
 		return instance
@@ -537,39 +605,30 @@ class cClinicalRecord(object):
 		"""
 		where_parts = ['pk_patient = %(pat)s']
 		args = {'pat': self.pk_patient}
-		if issues is not None:
+		if issues:
 			where_parts.append('pk_health_issue = ANY(%(issues)s)')
-			if len(issues) == 0:
-				args['issues'] = []
+			if isinstance(issues[0], gmHealthIssue.cHealthIssue):
+				args['issues'] = [ i['pk_health_issue'] for i in issues ]
+			elif isinstance(issues[0], int):
+				args['issues'] = issues
 			else:
-				if isinstance(issues[0], gmEMRStructItems.cHealthIssue):
-					args['issues'] = [ i['pk_health_issue'] for i in issues ]
-				elif isinstance(issues[0], int):
-					args['issues'] = issues
-				else:
-					raise ValueError('<issues> must be list of type int (=pk) or cHealthIssue, but 1st issue is: %s' % issues[0])
-		if episodes is not None:
+				raise ValueError('<issues> must be list of type int (=pk) or cHealthIssue, but 1st issue is: %s' % issues[0])
+		if episodes:
 			where_parts.append('pk_episode = ANY(%(epis)s)')
-			if len(episodes) == 0:
-				args['epis'] = []
+			if isinstance(episodes[0], gmEpisode.cEpisode):
+				args['epis'] = [ e['pk_episode'] for e in episodes ]
+			elif isinstance(episodes[0], int):
+				args['epis'] = episodes
 			else:
-				if isinstance(episodes[0], gmEMRStructItems.cEpisode):
-					args['epis'] = [ e['pk_episode'] for e in episodes ]
-				elif isinstance(episodes[0], int):
-					args['epis'] = episodes
-				else:
-					raise ValueError('<episodes> must be list of type int (=pk) or cEpisode, but 1st episode is: %s' % episodes[0])
-		if encounters is not None:
+				raise ValueError('<episodes> must be list of type int (=pk) or cEpisode, but 1st episode is: %s' % episodes[0])
+		if encounters:
 			where_parts.append('pk_encounter = ANY(%(encs)s)')
-			if len(encounters) == 0:
-				args['encs'] = []
+			if isinstance(encounters[0], gmEncounter.cEncounter):
+				args['encs'] = [ e['pk_encounter'] for e in encounters ]
+			elif isinstance(encounters[0], int):
+				args['encs'] = encounters
 			else:
-				if isinstance(encounters[0], gmEMRStructItems.cEncounter):
-					args['encs'] = [ e['pk_encounter'] for e in encounters ]
-				elif isinstance(encounters[0], int):
-					args['encs'] = encounters
-				else:
-					raise ValueError('<encounters> must be list of type int (=pk) or cEncounter, but 1st encounter is: %s' % encounters[0])
+				raise ValueError('<encounters> must be list of type int (=pk) or cEncounter, but 1st encounter is: %s' % encounters[0])
 		if soap_cats is not None:
 			where_parts.append('c_vn.soap_cat = ANY(%(cats)s)')
 			args['cats'] = gmSoapDefs.soap_cats_str2list(soap_cats)
@@ -586,7 +645,7 @@ class cClinicalRecord(object):
 			WHERE %s
 			ORDER BY date, soap_rank
 		""" % ' AND '.join(where_parts)
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		return [ gmClinNarrative.cNarrative(row = {'pk_field': 'pk_narrative', 'data': row}) for row in rows ]
 
 	#--------------------------------------------------------
@@ -616,12 +675,25 @@ class cClinicalRecord(object):
 			order by
 				encounter_started
 		""" # case sensitive
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': {'pat': self.pk_patient, 'term': search_term}}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': {'pat': self.pk_patient, 'term': search_term}}])
 		return rows
+
+	#--------------------------------------------------------
+	def __get_patient(self):
+		from Gnumed.business import gmPerson
+		curr_pat = gmPerson.gmCurrentPatient()
+		if curr_pat.connected:
+			if curr_pat.ID == self.pk_patient:
+				return curr_pat
+
+		return gmPerson.cPatient(aPK_obj = self.pk_patient)
+
+	patient = property(__get_patient)
 
 	#--------------------------------------------------------
 	def get_patient_ID(self):
 		return self.pk_patient
+
 	#--------------------------------------------------------
 	def get_statistics(self):
 		union_query = '\n	union all\n'.join ([
@@ -661,7 +733,7 @@ class cClinicalRecord(object):
 		])
 
 		rows = gmPG2.run_ro_queries (
-			queries = [{'cmd': union_query, 'args': {'pat': self.pk_patient}}]
+			queries = [{'sql': union_query, 'args': {'pat': self.pk_patient}}]
 		)
 
 		stats = dict (
@@ -695,7 +767,7 @@ class cClinicalRecord(object):
 
 		cmd = "SELECT dob FROM dem.v_all_persons WHERE pk_identity = %(pk)s"
 		args = {'pk': self.pk_patient}
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		dob = rows[0]['dob']
 
 		stats = self.get_statistics()
@@ -734,7 +806,7 @@ class cClinicalRecord(object):
 		if stats['procedures'] == 0:
 			txt += '\n'
 		else:
-			txt += _(', most recently:\n%s\n') % self.get_latest_performed_procedure().format(left_margin = 3)
+			txt += _(', most recently:\n%s\n') % self.latest_performed_procedure.format(left_margin = 3)
 
 		txt += '\n'
 		txt += _('Allergies and Intolerances\n')
@@ -902,8 +974,9 @@ class cClinicalRecord(object):
 			issues
 				- list of health issues whose allergies are to be retrieved
         """
-		cmd = "SELECT * FROM clin.v_pat_allergies WHERE pk_patient=%s order by descriptor"
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': [self.pk_patient]}])
+		SQL = "SELECT * FROM clin.v_pat_allergies WHERE pk_patient = %(pk_pat)s ORDER BY descriptor"
+		args = {'pk_pat': self.pk_patient}
+		rows = gmPG2.run_ro_queries(queries = [{'sql': SQL, 'args': args}])
 		filtered_allergies = []
 		for r in rows:
 			filtered_allergies.append(gmAllergy.cAllergy(row = {'data': r, 'pk_field': 'pk_allergy'}))
@@ -954,7 +1027,7 @@ class cClinicalRecord(object):
 	def delete_allergy(self, pk_allergy=None):
 		cmd = 'delete FROM clin.allergy WHERE pk=%(pk_allg)s'
 		args = {'pk_allg': pk_allergy}
-		gmPG2.run_rw_queries(queries = [{'cmd': cmd, 'args': args}])
+		gmPG2.run_rw_queries(queries = [{'sql': cmd, 'args': args}])
 
 	#--------------------------------------------------------
 	def is_allergic_to(self, atcs=None, inns=None, product_name=None):
@@ -1001,7 +1074,7 @@ SELECT * FROM clin.v_pat_allergies
 WHERE
 	pk_patient = %%(pat)s
 	AND ( %s )""" % ' OR '.join(where_parts)
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		if len(rows) == 0:
 			return False
 
@@ -1075,8 +1148,8 @@ WHERE
 			' AND '.join(where_parts),
 			order_by
 		)
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
-		return [ gmEMRStructItems.cEpisode(row = {'data': r, 'pk_field': 'pk_episode'}) for r in rows ]
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
+		return [ gmEpisode.cEpisode(row = {'data': r, 'pk_field': 'pk_episode'}) for r in rows ]
 
 	episodes = property(get_episodes)
 	#------------------------------------------------------------------
@@ -1093,7 +1166,7 @@ WHERE
 			'enc': gmTools.coalesce(pk_encounter, self.current_encounter['pk_encounter']),
 			'pat': self.pk_patient
 		}
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		if len(rows) == 0:
 			return []
 		epis = []
@@ -1106,7 +1179,7 @@ WHERE
 
 		- silently returns if episode already exists
 		"""
-		episode = gmEMRStructItems.create_episode (
+		episode = gmEpisode.create_episode (
 			link_obj = link_obj,
 			pk_health_issue = pk_health_issue,
 			episode_name = episode_name,
@@ -1142,10 +1215,10 @@ WHERE pk = (
 	limit 1
 	)""" % issue_where
 		rows = gmPG2.run_ro_queries(queries = [
-			{'cmd': cmd, 'args': {'pat': self.pk_patient, 'issue': issue}}
+			{'sql': cmd, 'args': {'pat': self.pk_patient, 'issue': issue}}
 		])
 		if len(rows) != 0:
-			return gmEMRStructItems.cEpisode(aPK_obj=rows[0][0])
+			return gmEpisode.cEpisode(aPK_obj=rows[0][0])
 
 		# no clinical items recorded, so try to find
 		# the youngest episode for this patient
@@ -1163,15 +1236,13 @@ WHERE
 	)
 	%s""" % issue_where
 		rows = gmPG2.run_ro_queries(queries = [
-			{'cmd': cmd, 'args': {'pat': self.pk_patient, 'issue': issue}}
+			{'sql': cmd, 'args': {'pat': self.pk_patient, 'issue': issue}}
 		])
 		if len(rows) != 0:
-			return gmEMRStructItems.cEpisode(aPK_obj=rows[0][0])
+			return gmEpisode.cEpisode(aPK_obj=rows[0][0])
 
 		return None
-	#--------------------------------------------------------
-	def episode2problem(self, episode=None):
-		return gmEMRStructItems.episode2problem(episode=episode)
+
 	#--------------------------------------------------------
 	# API: problems
 	#--------------------------------------------------------
@@ -1198,7 +1269,7 @@ WHERE
 		args = {'pat': self.pk_patient}
 
 		cmd = """SELECT pk_health_issue, pk_episode FROM clin.v_problem_list WHERE pk_patient = %(pat)s ORDER BY problem"""
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 
 		# Instantiate problem items
 		problems = []
@@ -1208,18 +1279,18 @@ WHERE
 				'pk_health_issue': row['pk_health_issue'],
 				'pk_episode': row['pk_episode']
 			}
-			problems.append(gmEMRStructItems.cProblem(aPK_obj = pk_args, try_potential_problems = False))
+			problems.append(gmProblem.cProblem(aPK_obj = pk_args, try_potential_problems = False))
 
 		# include non-problems ?
 		other_rows = []
 		if include_closed_episodes:
 			cmd = """SELECT pk_health_issue, pk_episode FROM clin.v_potential_problem_list WHERE pk_patient = %(pat)s and type = 'episode'"""
-			rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+			rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 			other_rows.extend(rows)
 
 		if include_irrelevant_issues:
 			cmd = """SELECT pk_health_issue, pk_episode FROM clin.v_potential_problem_list WHERE pk_patient = %(pat)s and type = 'health issue'"""
-			rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+			rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 			other_rows.extend(rows)
 
 		if len(other_rows) > 0:
@@ -1229,7 +1300,7 @@ WHERE
 					'pk_health_issue': row['pk_health_issue'],
 					'pk_episode': row['pk_episode']
 				}
-				problems.append(gmEMRStructItems.cProblem(aPK_obj = pk_args, try_potential_problems = True))
+				problems.append(gmProblem.cProblem(aPK_obj = pk_args, try_potential_problems = True))
 
 		# filter
 		if issues is not None:
@@ -1240,14 +1311,10 @@ WHERE
 		return problems
 
 	#--------------------------------------------------------
-	def reclass_problem(self, problem):
-		return gmEMRStructItems.reclass_problem(problem = problem)
-
-	#--------------------------------------------------------
 	def get_candidate_diagnoses(self):
 		cmd = "SELECT * FROM clin.v_candidate_diagnoses WHERE pk_patient = %(pat)s"
 		rows = gmPG2.run_ro_queries (
-			queries = [{'cmd': cmd, 'args': {'pat': self.pk_patient}}]
+			queries = [{'sql': cmd, 'args': {'pat': self.pk_patient}}]
 		)
 		return rows
 
@@ -1259,8 +1326,8 @@ WHERE
 	def get_health_issues(self, id_list = None):
 
 		cmd = "SELECT *, xmin_health_issue FROM clin.v_health_issues WHERE pk_patient = %(pat)s ORDER BY description"
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': {'pat': self.pk_patient}}])
-		issues = [ gmEMRStructItems.cHealthIssue(row = {'data': r, 'pk_field': 'pk_health_issue'}) for r in rows ]
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': {'pat': self.pk_patient}}])
+		issues = [ gmHealthIssue.cHealthIssue(row = {'data': r, 'pk_field': 'pk_health_issue'}) for r in rows ]
 
 		if id_list is None:
 			return issues
@@ -1280,15 +1347,12 @@ WHERE
 	#------------------------------------------------------------------
 	def add_health_issue(self, issue_name=None, link_obj=None):
 		"""Adds patient health issue."""
-		return gmEMRStructItems.create_health_issue (
+		return gmHealthIssue.create_health_issue (
 			description = issue_name,
 			encounter = self.current_encounter['pk_encounter'],
 			patient = self.pk_patient,
 			link_obj = link_obj
 		)
-	#--------------------------------------------------------
-	def health_issue2problem(self, issue=None):
-		return gmEMRStructItems.health_issue2problem(health_issue = issue)
 
 	#--------------------------------------------------------
 	# API: substance intake
@@ -1395,7 +1459,7 @@ WHERE
 					JOIN clin.v_last_vaccination4indication c_v_lv4i ON (c_v_shots.pk_vaccination = c_v_lv4i.pk_vaccination)
 			WHERE %s
 		""" % '\nAND '.join(where_parts)
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': SQL, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': SQL, 'args': args}])
 		if not rows:
 			return {}
 
@@ -1502,28 +1566,27 @@ WHERE
 			workplace = _here.active_workplace,
 			default = '1 hour 30 minutes'
 		)
-		cmd = gmEMRStructItems.SQL_get_encounters % """pk_encounter = (
+		SQL = gmEncounter.SQL_get_encounters % """-- look for "very recent" encounter
+		pk_encounter = (
 			SELECT pk_encounter
 			FROM clin.v_most_recent_encounters
 			WHERE
-				pk_patient = %s
+				pk_patient = %(pk_pat)s
 					and
-				last_affirmed > (now() - %s::interval)
+				last_affirmed > (now() - %(min)s::interval)
 			ORDER BY
 				last_affirmed DESC
 			LIMIT 1
 		)"""
-		enc_rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': [self.pk_patient, min_ttl]}])
-
-		# none found
-		if len(enc_rows) == 0:
+		args = {'pk_pat': self.pk_patient, 'min': min_ttl}
+		enc_rows = gmPG2.run_ro_queries(queries = [{'sql': SQL, 'args': args}])
+		if not enc_rows:
 			_log.debug('no <very recent> encounter (younger than [%s]) found' % min_ttl)
 			return False
 
 		_log.debug('"very recent" encounter [%s] found and re-activated' % enc_rows[0]['pk_encounter'])
-
 		# attach to existing
-		self.current_encounter = gmEMRStructItems.cEncounter(row = {'data': enc_rows[0], 'pk_field': 'pk_encounter'})
+		self.current_encounter = gmEncounter.cEncounter(row = {'data': enc_rows[0], 'pk_field': 'pk_encounter'})
 		return True
 
 	#------------------------------------------------------------------
@@ -1538,28 +1601,31 @@ WHERE
 			workplace = _here.active_workplace,
 			default = '6 hours'
 		)
-
 		# do we happen to have a "fairly recent" candidate ?
-		cmd = gmEMRStructItems.SQL_get_encounters % """pk_encounter = (
+		SQL = gmEncounter.SQL_get_encounters % """-- look for "fairly recent" encounter
+		pk_encounter = (
 			SELECT pk_encounter
 			FROM clin.v_most_recent_encounters
 			WHERE
-				pk_patient=%s
+				pk_patient = %(pk_pat)s
 					AND
-				last_affirmed BETWEEN (now() - %s::interval) AND (now() - %s::interval)
+				last_affirmed BETWEEN (now() - %(max)s::interval) AND (now() - %(min)s::interval)
 			ORDER BY
 				last_affirmed DESC
 			LIMIT 1
 		)"""
-		enc_rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': [self.pk_patient, max_ttl, min_ttl]}])
-
-		# none found
-		if len(enc_rows) == 0:
+		args = {
+			'pk_pat': self.pk_patient,
+			'max': max_ttl,
+			'min': min_ttl
+		}
+		enc_rows = gmPG2.run_ro_queries(queries = [{'sql': SQL, 'args': args}])
+		if not enc_rows:
 			_log.debug('no <fairly recent> encounter (between [%s] and [%s] old) found' % (min_ttl, max_ttl))
 			return None
 
 		_log.debug('"fairly recent" encounter [%s] found', enc_rows[0]['pk_encounter'])
-		return gmEMRStructItems.cEncounter(row = {'data': enc_rows[0], 'pk_field': 'pk_encounter'})
+		return gmEncounter.cEncounter(row = {'data': enc_rows[0], 'pk_field': 'pk_encounter'})
 
 #	#------------------------------------------------------------------
 #	def __check_for_fairly_recent_encounter(self):
@@ -1576,7 +1642,7 @@ WHERE
 #		)
 #
 #		# do we happen to have a "fairly recent" candidate ?
-#		cmd = gmEMRStructItems.SQL_get_encounters % u"""pk_encounter = (
+#		cmd = gmEncounter.SQL_get_encounters % u"""pk_encounter = (
 #			SELECT pk_encounter
 #			FROM clin.v_most_recent_encounters
 #			WHERE
@@ -1587,7 +1653,8 @@ WHERE
 #				last_affirmed DESC
 #			LIMIT 1
 #		)"""
-#		enc_rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': [self.pk_patient, max_ttl, min_ttl]}])
+#		xxxxx FIXME: rework as dict
+#		xxxxx enc_rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': xxxxxxxx[self.pk_patient, max_ttl, min_ttl]}])
 #
 #		# none found
 #		if len(enc_rows) == 0:
@@ -1595,7 +1662,7 @@ WHERE
 #			return
 #
 #		_log.debug('"fairly recent" encounter [%s] found', enc_rows[0]['pk_encounter'])
-#		fairly_recent_enc = gmEMRStructItems.cEncounter(row = {'data': enc_rows[0], 'pk_field': 'pk_encounter'})
+#		fairly_recent_enc = gmEncounter.cEncounter(row = {'data': enc_rows[0], 'pk_field': 'pk_encounter'})
 #		gmDispatcher.send(u'ask_for_encounter_continuation', current = self.__encounter, fairly_recent_encounter = fairly_recent_enc)
 
 #	#------------------------------------------------------------------
@@ -1633,7 +1700,8 @@ WHERE
 #				last_affirmed BETWEEN (now() - %s::interval) AND (now() - %s::interval)
 #			ORDER BY
 #				last_affirmed DESC"""
-#		enc_rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': [self.pk_patient, max_ttl, min_ttl]}])
+#		xxxxx FIXME: rework as dict
+#		enc_rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': xxxxxxx[self.pk_patient, max_ttl, min_ttl]}])
 #		# none found
 #		if len(enc_rows) == 0:
 #			_log.debug('no <fairly recent> encounter (between [%s] and [%s] old) found' % (min_ttl, max_ttl))
@@ -1641,12 +1709,13 @@ WHERE
 #
 #		_log.debug('"fairly recent" encounter [%s] found', enc_rows[0][0])
 #
-#		encounter = gmEMRStructItems.cEncounter(aPK_obj=enc_rows[0][0])
+#		encounter = gmEncounter.cEncounter(aPK_obj=enc_rows[0][0])
 #		# ask user whether to attach or not
 #		cmd = u"""
 #			SELECT title, firstnames, lastnames, gender, dob
 #			FROM dem.v_all_persons WHERE pk_identity=%s"""
-#		pats = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': [self.pk_patient]}])
+#		xxxxx FIXME: rework as dict
+#		pats = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': xxxxxxx[self.pk_patient]}])
 #		pat = pats[0]
 #		pat_str = u'%s %s %s (%s), %s  [#%s]' % (
 #			gmTools.coalesce(pat[0], u'')[:5],
@@ -1699,10 +1768,10 @@ WHERE
 			workplace = _here.active_workplace
 		)
 		if enc_type is None:
-			enc_type = gmEMRStructItems.get_most_commonly_used_encounter_type()
+			enc_type = gmEncounter.get_most_commonly_used_encounter_type()
 		if enc_type is None:
 			enc_type = 'in surgery'
-		enc = gmEMRStructItems.create_encounter(fk_patient = self.pk_patient, enc_type = enc_type)
+		enc = gmEncounter.create_encounter(fk_patient = self.pk_patient, enc_type = enc_type)
 		enc['pk_org_unit'] = _here['pk_org_unit']
 		enc.save()
 		self.current_encounter = enc
@@ -1733,7 +1802,7 @@ WHERE
 			# - find episodes corresponding to the health issues in question
 			cmd = "SELECT distinct pk_episode FROM clin.v_pat_episodes WHERE pk_health_issue = ANY(%(issue_pks)s) AND pk_patient = %(pat)s"
 			args = {'issue_pks': issues, 'pat': self.pk_patient}
-			rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+			rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 			epis4issues_pks = [ r['pk_episode']  for r in rows ]
 			if episodes is None:
 				episodes = []
@@ -1744,7 +1813,7 @@ WHERE
 			# but, better safe than sorry ...
 			args = {'epi_pks': episodes, 'pat': self.pk_patient}
 			cmd = "SELECT DISTINCT fk_encounter FROM clin.clin_root_item WHERE fk_episode = ANY(%(epi_pks)s) AND fk_encounter = ANY(SELECT pk FROM clin.encounter WHERE fk_patient = %(pat)s)"
-			rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+			rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 			encs4epis_pks = [ r['fk_encounter'] for r in rows ]
 			if id_list is None:
 				id_list = []
@@ -1787,8 +1856,8 @@ WHERE
 			order_by,
 			limit
 		)
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
-		encounters = [ gmEMRStructItems.cEncounter(row = {'data': r, 'pk_field': 'pk_encounter'}) for r in rows ]
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
+		encounters = [ gmEncounter.cEncounter(row = {'data': r, 'pk_field': 'pk_encounter'}) for r in rows ]
 
 		# we've got the encounters, start filtering
 		filtered_encounters = []
@@ -1800,7 +1869,7 @@ WHERE
 			# but, better safe than sorry ...
 			args = {'epi_pks': episodes, 'pat': self.pk_patient}
 			cmd = "SELECT distinct fk_encounter FROM clin.clin_root_item WHERE fk_episode = ANY(%(epi_pks)s) AND fk_encounter IN (SELECT pk FROM clin.encounter WHERE fk_patient = %(pat)s)"
-			rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+			rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 			encs4epis_pks = [ r['fk_encounter'] for r in rows ]
 			filtered_encounters = [ enc for enc in filtered_encounters if enc['pk_encounter'] in encs4epis_pks ]
 
@@ -1865,7 +1934,7 @@ SELECT MIN(earliest) FROM (
 
 	)
 ) AS candidates"""
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		return rows[0][0]
 
 	earliest_care_date = property(get_earliest_care_date)
@@ -1919,7 +1988,7 @@ SELECT MIN(earliest) FROM (
 			GROUP BY l10n_type
 			ORDER BY frequency DESC
 		""" % ' AND '.join(where_parts)
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		return rows
 
 	#------------------------------------------------------------------
@@ -1961,7 +2030,7 @@ SELECT MIN(earliest) FROM (
 				LIMIT 2
 			""" % ' AND '.join(where_parts)
 
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 
 		if len(rows) == 0:
 			return None
@@ -1973,13 +2042,13 @@ SELECT MIN(earliest) FROM (
 				# yes
 				return None
 			# no
-			return gmEMRStructItems.cEncounter(row = {'data': rows[0], 'pk_field': 'pk_encounter'})
+			return gmEncounter.cEncounter(row = {'data': rows[0], 'pk_field': 'pk_encounter'})
 
 		# more than one encounter
 		if rows[0]['pk_encounter'] == self.current_encounter['pk_encounter']:
-			return gmEMRStructItems.cEncounter(row = {'data': rows[1], 'pk_field': 'pk_encounter'})
+			return gmEncounter.cEncounter(row = {'data': rows[1], 'pk_field': 'pk_encounter'})
 
-		return gmEMRStructItems.cEncounter(row = {'data': rows[0], 'pk_field': 'pk_encounter'})
+		return gmEncounter.cEncounter(row = {'data': rows[0], 'pk_field': 'pk_encounter'})
 
 	last_but_one_encounter = property(get_last_but_one_encounter)
 
@@ -1995,7 +2064,7 @@ SELECT MIN(earliest) FROM (
 		cmd = "SELECT clin.remove_old_empty_encounters(%(pat)s::INTEGER, %(ttl)s::INTERVAL)"
 		args = {'pat': self.pk_patient, 'ttl': ttl}
 		try:
-			rows = gmPG2.run_rw_queries(queries = [{'cmd': cmd, 'args': args}], return_data = True)
+			rows = gmPG2.run_rw_queries(queries = [{'sql': cmd, 'args': args}], return_data = True)
 		except Exception:
 			_log.exception('error deleting empty encounters')
 			return False
@@ -2081,7 +2150,7 @@ SELECT MIN(earliest) FROM (
 				reviewed IS FALSE
 			%s""" % order_by
 		args = {'pat': self.pk_patient}
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		return [ gmPathLab.cTestResult(row = {'pk_field': 'pk_test_result', 'data': r}) for r in rows ]
 
 	#------------------------------------------------------------------
@@ -2123,7 +2192,7 @@ SELECT MIN(earliest) FROM (
 				%s""" % order_by
 
 		args = {'pat': self.pk_patient}
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		return [ gmPathLab.cMeasurementType(row = {'pk_field': 'pk_test_type', 'data': r}) for r in rows ]
 
 	#------------------------------------------------------------------
@@ -2162,7 +2231,7 @@ SELECT MIN(earliest) FROM (
 			' AND '.join(where_parts),
 			gmTools.bool2subst(reverse_chronological, 'DESC', 'ASC', 'DESC')
 		)
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		return rows
 
 	#------------------------------------------------------------------
@@ -2199,7 +2268,7 @@ SELECT MIN(earliest) FROM (
 		)) AS grouped_union
 		ORDER BY rank, problem
 		""" % (where, where)
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		return rows
 
 	#------------------------------------------------------------------
@@ -2231,7 +2300,7 @@ SELECT MIN(earliest) FROM (
 			' AND '.join(where_parts),
 			gmTools.bool2subst(reverse_chronological, 'DESC', 'ASC', 'DESC')
 		)
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		tests = [ gmPathLab.cTestResult(row = {'pk_field': 'pk_test_result', 'data': r}) for r in rows ]
 		return tests
 
@@ -2269,7 +2338,7 @@ SELECT MIN(earliest) FROM (
 			)"""
 		args = {'pat': self.pk_patient}
 		cmd = gmOrganization._SQL_get_org_unit % where
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		return [ gmOrganization.cOrgUnit(row = {'pk_field': 'pk_org_unit', 'data': r}) for r in rows ]
 
 	#------------------------------------------------------------------
@@ -2338,6 +2407,14 @@ if __name__ == "__main__":
 	if sys.argv[1] != 'test':
 		sys.exit()
 
+	del _
+	from Gnumed.pycommon import gmI18N
+	gmI18N.activate_locale()
+	gmI18N.install_domain('gnumed')
+	gmDateTime.init()
+
+	#-----------------------------------------
+	#-----------------------------------------
 	def _do_delayed(*args, **kwargs):
 		print(args)
 		print(kwargs)
@@ -2345,6 +2422,7 @@ if __name__ == "__main__":
 
 	set_delayed_executor(_do_delayed)
 
+	#-----------------------------------------
 	#-----------------------------------------
 	def test_allergy_state():
 		emr = cClinicalRecord(aPKey=1)
@@ -2515,11 +2593,24 @@ if __name__ == "__main__":
 		pat = cPatient(aPK_obj = 12)
 		print(emr.format_as_journal(left_margin = 1, patient = pat))
 
+
+	#------------------------------------------------------------
+	def test_export_care_structure():
+		from Gnumed.business import gmPersonSearch
+		pat = gmPersonSearch.ask_for_patient()
+		while pat:
+			print('patient:', pat.description_gender)
+			print('exported into:', pat.emr.export_care_structure())
+			pat = gmPersonSearch.ask_for_patient()
+		return 0
+
 	#-----------------------------------------
 
 	gmPG2.request_login_params(setup_pool = True)
 	from Gnumed.business import gmPraxis
-	gmPraxis.activate_first_praxis_branch()
+	gmPraxis.gmCurrentPraxisBranch.from_first_branch()
+
+	test_export_care_structure()
 
 	#test_allergy_state()
 	#test_is_allergic_to()
@@ -2539,7 +2630,7 @@ if __name__ == "__main__":
 	#test_episodes()
 	#test_format_as_journal()
 	#test_get_abuses()
-	test_get_intakes()
+	#test_get_intakes()
 	#test_get_encounters()
 	#test_get_issues()
 	#test_get_dx()

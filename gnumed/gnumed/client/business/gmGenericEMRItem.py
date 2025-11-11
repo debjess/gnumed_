@@ -25,11 +25,11 @@ from Gnumed.pycommon import gmPG2
 from Gnumed.pycommon import gmTools
 
 from Gnumed.business import gmSoapDefs
-from Gnumed.business.gmEMRStructItems import cHealthIssue
-from Gnumed.business.gmEMRStructItems import cEncounter
-from Gnumed.business.gmEMRStructItems import cEpisode
-from Gnumed.business.gmEMRStructItems import cHospitalStay
-from Gnumed.business.gmEMRStructItems import cPerformedProcedure
+from Gnumed.business.gmHealthIssue import cHealthIssue
+from Gnumed.business.gmEpisode import cEpisode
+from Gnumed.business.gmEncounter import cEncounter
+from Gnumed.business.gmHospitalStay import cHospitalStay
+from Gnumed.business.gmPerformedProcedure import cPerformedProcedure
 from Gnumed.business.gmExternalCare import cExternalCareItem
 from Gnumed.business.gmVaccination import cVaccination
 from Gnumed.business.gmClinNarrative import cNarrative
@@ -333,7 +333,7 @@ def get_generic_emr_items(encounters=None, episodes=None, issues=None, patient=N
 			_SQL_get_hints_as_generic_emr_items
 		) + '\n' + order_by
 
-	rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+	rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 	if return_pks:
 		return [ {
 			'src_table': r['src_table'],

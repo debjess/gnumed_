@@ -121,7 +121,7 @@ class cExportItem(gmBusinessDBObject.cBusinessDBObject):
 				fk_doc_obj = NULL
 			WHERE pk = %(pk)s"""
 		args = {'pk': self.pk_obj, 'data': data}
-		gmPG2.run_rw_queries(queries = [{'cmd': SQL, 'args': args}], return_data = False)
+		gmPG2.run_rw_queries(queries = [{'sql': SQL, 'args': args}], return_data = False)
 		# must update XMIN now ...
 		self.refetch_payload()
 		return True
@@ -308,7 +308,7 @@ class cExportItem(gmBusinessDBObject.cBusinessDBObject):
 		_log.debug('target path: %s', target_path)
 		SQL = 'SELECT substring(data FROM %(start)s FOR %(size)s) FROM clin.export_item WHERE pk = %(pk)s'
 		success = gmPG2.bytea2file (
-			data_query = {'cmd': SQL, 'args': {'pk': self.pk_obj}},
+			data_query = {'sql': SQL, 'args': {'pk': self.pk_obj}},
 			filename = tmp_fname,
 			data_size = self._payload['size']
 		)
@@ -655,7 +655,7 @@ def get_export_items(order_by=None, pk_identity=None, designation=None, return_p
 		order_by = 'pk_identity, list_position'
 	order_by = ' ORDER BY %s' % order_by
 	cmd = (_SQL_get_export_items % ' AND '.join(where_parts)) + order_by
-	rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+	rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 	if return_pks:
 		return [ r['pk_export_item'] for r in rows ]
 
@@ -696,14 +696,14 @@ def create_export_item(description=None, pk_identity=None, pk_doc_obj=None, file
 		)
 		RETURNING pk
 	"""
-	rows = gmPG2.run_rw_queries(queries = [{'cmd': cmd, 'args': args}], return_data = True)
+	rows = gmPG2.run_rw_queries(queries = [{'sql': cmd, 'args': args}], return_data = True)
 	return cExportItem(aPK_obj = rows[0]['pk'])
 
 #------------------------------------------------------------
 def delete_export_item(pk_export_item=None):
 	args = {'pk': pk_export_item}
 	cmd = "DELETE FROM clin.export_item WHERE pk = %(pk)s"
-	gmPG2.run_rw_queries(queries = [{'cmd': cmd, 'args': args}])
+	gmPG2.run_rw_queries(queries = [{'sql': cmd, 'args': args}])
 	return True
 
 #============================================================
@@ -913,7 +913,7 @@ class cExportArea(object):
 			'fname': path_item_data
 		}
 		SQL = _SQL_get_export_items % ' AND '.join(where_parts)
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': SQL, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': SQL, 'args': args}])
 		if len(rows) == 0:
 			return None
 
@@ -991,7 +991,7 @@ class cExportArea(object):
 	def document_part_item_exists(self, pk_part=None):
 		cmd = "SELECT EXISTS (SELECT 1 FROM clin.export_item WHERE fk_doc_obj = %(pk_obj)s)"
 		args = {'pk_obj': pk_part}
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 		return rows[0][0]
 
 	#--------------------------------------------------------
@@ -1009,7 +1009,7 @@ class cExportArea(object):
 			where_parts.append('pk_doc_obj IS NULL')
 
 		cmd = _SQL_get_export_items % ' AND '.join(where_parts)
-		rows = gmPG2.run_ro_queries(queries = [{'cmd': cmd, 'args': args}])
+		rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
 
 		if len(rows) == 0:
 			return None
@@ -1122,14 +1122,15 @@ class cExportArea(object):
 
 		from Gnumed.business.gmPerson import cPatient
 		pat = cPatient(aPK_obj = self.__pk_identity)
-		target_base_dir = base_dir
-		if target_base_dir is None:
-			target_sandbox_dir = gmTools.mk_sandbox_dir()
-			target_base_dir = os.path.join(target_sandbox_dir, pat.subdir_name)
-		gmTools.mkdir(target_base_dir)
-		_log.debug('patient media base dir: %s', target_base_dir)
-		if not gmTools.dir_is_empty(target_base_dir):
-			_log.error('patient media base dir is not empty')
+		if base_dir is None:
+			export_sandbox_dir = gmTools.mk_sandbox_dir()
+			export_dir = os.path.join(export_sandbox_dir, pat.subdir_name)
+		else:
+			export_dir = base_dir
+		gmTools.mkdir(export_dir)
+		_log.debug('patient media export dir: %s', export_dir)
+		if not gmTools.dir_is_empty(export_dir):
+			_log.error('patient media export dir is not empty')
 			return False
 
 		from Gnumed.business.gmPraxis import gmCurrentPraxisBranch
@@ -1261,7 +1262,7 @@ class cExportArea(object):
 			index_fname = self._create_index_html(prax, sandbox_dir, html_data)
 
 		# 4) move sandbox to target dir
-		target_dir = gmTools.copy_tree_content(sandbox_dir, target_base_dir)
+		target_dir = gmTools.copy_tree_content(sandbox_dir, export_dir)
 		if target_dir is None:
 			_log.error('cannot fill target base dir')
 			return False
@@ -1272,7 +1273,7 @@ class cExportArea(object):
 	def export_as_zip(self, base_dir:str=None, items:list=None, passphrase:str=None, master_passphrase:str=None) -> str:
 		_log.debug('target dir: %s', base_dir)
 		export_dir = self.export(base_dir = base_dir, items = items)
-		if export_dir is None:
+		if not export_dir:
 			_log.debug('cannot export items')
 			return None
 
@@ -1440,19 +1441,19 @@ class cExportArea(object):
 	#--------------------------------------------------------
 	def _create_readme(self, patient, directory):
 		_README_CONTENT = (
-			'This is a patient data excerpt created by the GNUmed Electronic Medical Record.\n'
+			'Patient data collection created with the GNUmed Electronic Medical Record.\n'
 			'\n'
 			'Patient: %s\n'
 			'\n'
-			'Please display <frontpage.html> to browse patient data.\n'
+			'Please open <frontpage.html> to browse patient data.\n'
 			'\n'
 			'Individual documents are stored in the subdirectory\n'
 			'\n'
 			'	documents/\n'
 			'\n'
 			'\n'
-			'Data may need to be decrypted with either GNU Privacy\n'
-			'Guard or 7zip/WinZip.\n'
+			'Data may be encrypted. It can be decrypted with either\n'
+			' GNU Privacy Guard or 7zip/WinZip.\n'
 			'\n'
 			'.asc:\n'
 			'	https://gnupg.org\n'
@@ -1461,8 +1462,8 @@ class cExportArea(object):
 			'	https://www.7-zip.org\n'
 			'	https://www.winzip.com\n'
 			'\n'
-			'To obtain any needed keys you will have to get in touch with\n'
-			'the creator or the owner of this patient media excerpt.\n'
+			'To obtain decryption keys you will have to get in touch\n'
+			'with the creator or owner of this patient media.\n'
 		)
 		readme_fname = os.path.join(directory, 'README')
 		readme_file = open(readme_fname, mode = 'wt', encoding = 'utf8')
@@ -1750,7 +1751,7 @@ def store_object_passphrase (
 		'phrase': encrypted_phrase['data'],
 		'desc': comment
 	}
-	gmPG2.run_rw_queries(queries = [{'cmd': SQL, 'args': args}])
+	gmPG2.run_rw_queries(queries = [{'sql': SQL, 'args': args}])
 	return True
 
 #---------------------------------------------------------------------------
@@ -1774,7 +1775,7 @@ def get_object_passphrases(hash_value:str=None, order_by:str=None, link_obj=None
 		SQL += ' WHERE %s' % ' AND '.join(WHERE_PARTS)
 	if order_by:
 		SQL += ' ORDER BY %s' % order_by
-	rows = gmPG2.run_ro_queries(queries = [{'cmd': SQL, 'args': args}], link_obj = link_obj)
+	rows = gmPG2.run_ro_queries(queries = [{'sql': SQL, 'args': args}], link_obj = link_obj)
 	if not rows:
 		return None
 

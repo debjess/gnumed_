@@ -20,11 +20,10 @@ to weed out superfluous cruft.
 __author__ = "Karsten.Hilbert@gmx.net"
 __license__ = "GPL v2 or later (details at https://www.gnu.org)"
 
-import sys, os.path, io, logging
+import sys, os.path, logging
 
 
 _log = logging.getLogger('gm.bootstrapper')
-_log.info(__version__)
 
 #==================================================================
 def generate_pruning_dml(filename=None):
@@ -40,7 +39,7 @@ def generate_pruning_dml(filename=None):
 	idx = 1
 
 	for line in  backup_file:
-		print idx
+		print(idx)
 		idx += 1
 		# reproduce configuration
 		if line.startswith('SET '):

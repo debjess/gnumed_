@@ -56,7 +56,6 @@ FILES_REMOVE=\
 "./gnumed-client.$CLIENTREV/client/wxpython/gmGP_Inbox.py "\
 "./gnumed-client.$CLIENTREV/client/wxpython/gmGP_PatientPicture.py "\
 "./gnumed-client.$CLIENTREV/client/wxpython/gmGP_SocialHistory.py "\
-"./gnumed-client.$CLIENTREV/client/wxpython/gmLabWidgets.py "\
 "./gnumed-client.$CLIENTREV/client/wxpython/gmListCtrlMapper.py "\
 "./gnumed-client.$CLIENTREV/client/wxpython/gmMultiColumnList.py "\
 "./gnumed-client.$CLIENTREV/client/wxpython/gmMultiSash.py "\
@@ -75,7 +74,6 @@ FILES_REMOVE=\
 "./gnumed-client.$CLIENTREV/client/wxpython/gui/gmDrugDisplay.py "\
 "./gnumed-client.$CLIENTREV/client/wxpython/gui/gmEMRTextDumpPlugin.py "\
 "./gnumed-client.$CLIENTREV/client/wxpython/gui/gmGuidelines.py "\
-"./gnumed-client.$CLIENTREV/client/wxpython/gui/gmLabJournal.py "\
 "./gnumed-client.$CLIENTREV/client/wxpython/gui/gmManual.py "\
 "./gnumed-client.$CLIENTREV/client/wxpython/gui/gmMultiSashedProgressNoteInputPlugin.py "\
 "./gnumed-client.$CLIENTREV/client/wxpython/gui/gmOffice.py "\
@@ -144,8 +142,8 @@ echo "============"
 mkdir -p ./gnumed-client.$CLIENTREV/external-tools/
 run_shellcheck ../../external-tools/gm-install_arriba
 cp -vf ../../external-tools/gm-install_arriba ./gnumed-client.$CLIENTREV/external-tools/
-run_shellcheck ../../external-tools/gm-download_data
-cp -vf ../../external-tools/gm-download_data ./gnumed-client.$CLIENTREV/external-tools/
+#run_shellcheck ../../external-tools/gm-download_data
+#cp -vf ../../external-tools/gm-download_data ./gnumed-client.$CLIENTREV/external-tools/
 run_shellcheck ../../external-tools/gm-download_atc
 cp -vf ../../external-tools/gm-download_atc ./gnumed-client.$CLIENTREV/external-tools/
 run_shellcheck ../../external-tools/gm-print_doc
@@ -173,8 +171,6 @@ run_shellcheck ../../external-tools/gm-create_datamatrix
 cp -vf ../../external-tools/gm-create_datamatrix ./gnumed-client.$CLIENTREV/external-tools/
 run_shellcheck ../../external-tools/gm-create_dicomdir
 cp -vf ../../external-tools/gm-create_dicomdir ./gnumed-client.$CLIENTREV/external-tools/
-run_shellcheck ../../external-tools/gm-import_incoming
-cp -vf ../../external-tools/gm-import_incoming ./gnumed-client.$CLIENTREV/external-tools/
 run_shellcheck ../../external-tools/gnumed-completion.bash
 cp -vf ../../external-tools/gnumed-completion.bash ./gnumed-client.$CLIENTREV/external-tools/
 
@@ -197,6 +193,12 @@ if test "${RESULT}" != "0" ; then
 	exit ${RESULT}
 fi
 appstreamcli validate --pedantic --verbose ./appdata.xml
+RESULT="$?"
+if test "${RESULT}" != "0" ; then
+	echo "appstreamcli: <appdata.xml> --pedantically suspicious (${RESULT})"
+	read -p "Hit ENTER to continue"
+fi
+appstreamcli validate ./appdata.xml
 RESULT="$?"
 if test "${RESULT}" != "0" ; then
 	echo "appstreamcli: <appdata.xml> invalid (${RESULT})"
@@ -270,8 +272,6 @@ cp -vf ../../client/doc/man-pages/gm-convert_file.1 ./gnumed-client.$CLIENTREV/c
 cp -vf ../../client/doc/man-pages/gm-describe_file.1 ./gnumed-client.$CLIENTREV/client/doc/
 cp -vf ../../client/doc/man-pages/gm-create_datamatrix.1 ./gnumed-client.$CLIENTREV/client/doc/
 cp -vf ../../client/doc/man-pages/gm-create_dicomdir.1 ./gnumed-client.$CLIENTREV/client/doc/
-cp -vf ../../client/doc/man-pages/gm-import_incoming.1 ./gnumed-client.$CLIENTREV/client/doc/
-#cp -vf ../../client/doc/man-pages/gnumed.1 ./gnumed-client.$CLIENTREV/client/doc/
 # generate man page for gnumed(.py)
 python3 ../../client/gnumed.py --local-import --tool=generate_man_page
 RESULT="$?"
@@ -822,6 +822,6 @@ echo "include schema docs"
 
 # upload
 read -p "Hit [ENTER] for uploading tarballs "
-scp $CLIENTARCH $CLIENTARCH.md5 $CLIENTARCH.sha512 $SRVARCH $SRVARCH.md5 $SRVARCH.sha512 gnumed.de:
+scp $CLIENTARCH $CLIENTARCH.md5 $CLIENTARCH.sha512 $SRVARCH $SRVARCH.md5 $SRVARCH.sha512 gm-vm:
 
 # post announcement ?

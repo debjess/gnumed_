@@ -73,7 +73,7 @@ from Gnumed.pycommon import gmWorkerThread
 from Gnumed.business import gmPerson
 from Gnumed.business import gmClinicalRecord
 from Gnumed.business import gmPraxis
-from Gnumed.business import gmEMRStructItems
+from Gnumed.business import gmEncounter
 from Gnumed.business import gmArriba
 from Gnumed.business import gmStaff
 from Gnumed.business import gmAutoFileImport
@@ -1809,7 +1809,7 @@ class gmTopLevelFrame(wx.Frame):
 
 	#----------------------------------------------
 	def __on_cfg_enc_default_type(self, evt):
-		enc_types = gmEMRStructItems.get_encounter_types()
+		enc_types = gmEncounter.get_encounter_types()
 		msg = _(
 			'Select the default type for new encounters.\n'
 			'\n'
@@ -2151,6 +2151,7 @@ class gmTopLevelFrame(wx.Frame):
 			'communication_channel_types',
 			'text_expansions',
 			'patient_tags',
+			'gender_defs',
 			'hints',
 			'db_translations',
 			'workplaces'
@@ -2180,7 +2181,8 @@ class gmTopLevelFrame(wx.Frame):
 			'meds_drugs':      _('Medications: drug products and generic drugs'),
 			'workplaces': _('Workplace profiles (which plugins to load)'),
 			'billables': _('Billable items'),
-			'ref_data_sources': _('Reference data sources')
+			'ref_data_sources': _('Reference data sources'),
+			'gender_defs': _('Gender definitions')
 		}
 
 		map_list2handler = {
@@ -2207,7 +2209,8 @@ class gmTopLevelFrame(wx.Frame):
 			'billables': gmBillingWidgets.manage_billables,
 			'ref_data_sources': gmCodingWidgets.browse_data_sources,
 			'hints': gmAutoHintWidgets.manage_dynamic_hints,
-			'test_panels': gmMeasurementWidgets.manage_test_panels
+			'test_panels': gmMeasurementWidgets.manage_test_panels,
+			'gender_defs': gmDemographicsWidgets.manage_gender_definitions
 		}
 
 		#---------------------------------
@@ -2215,6 +2218,7 @@ class gmTopLevelFrame(wx.Frame):
 			try: map_list2handler[item](parent = self)
 			except KeyError: pass
 			return False
+
 		#---------------------------------
 
 		gmListWidgets.get_choices_from_list (
@@ -2806,12 +2810,13 @@ class gmTopLevelFrame(wx.Frame):
 
 		wx.BeginBusyCursor()
 		try:
-			fname = gmEMRStructItems.export_emr_structure(patient = pat)
+			fname = pat.emr.export_care_structure()
 			pat.export_area.add_file(filename = fname, hint = _('EMR as care structure file'))
 		except Exception:
 			_log.exception('error adding EMR structure file to export area')
 			gmDispatcher.send(signal = 'statustext', msg = _('Cannot export EMR.'))
-		wx.EndBusyCursor()
+		finally:
+			wx.EndBusyCursor()
 
 	#----------------------------------------------
 #	def __on_save_emr_by_last_mod(self, event):
@@ -3836,7 +3841,7 @@ class gmApp(wx.App):
 			option = 'last known workplaces',
 			value = wps
 		)
-		_cfg.reload_file_source(file = prefs_file)
+		_cfg.reload_file_source(filename = prefs_file)
 
 	#----------------------------------------------
 	def __setup_prefs_file(self):

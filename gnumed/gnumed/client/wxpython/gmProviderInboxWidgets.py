@@ -423,7 +423,7 @@ from Gnumed.wxGladeWidgets import wxgProviderInboxPnl
 
 class cProviderInboxPnl(wxgProviderInboxPnl.wxgProviderInboxPnl, gmRegetMixin.cRegetOnPaintMixin):
 
-	_item_handlers = {}
+	_item_handlers:dict = {}
 
 	#--------------------------------------------------------
 	def __init__(self, *args, **kwds):
@@ -616,7 +616,7 @@ class cProviderInboxPnl(wxgProviderInboxPnl.wxgProviderInboxPnl, gmRegetMixin.cR
 					m['lastnames'],
 					m['firstnames'],
 					gmTools.coalesce(m['l10n_gender'], '', ' (%s)'),
-					gmDateTime.pydt_strftime(m['dob'], '%Y %b %d', none_str = ''),
+					gmDateTime.format_dob(m['dob'], format = '%Y %b %d', none_string = ''),
 					m['pk_patient']
 				))
 			item.append(m['comment'])
@@ -926,18 +926,18 @@ if __name__ == '__main__':
 	if sys.argv[1] != 'test':
 		sys.exit()
 
-	def test_message_inbox():
-		app = wx.PyWidgetTester(size = (800, 600))
-		app.SetWidget(cProviderInboxPnl, -1)
-		app.MainLoop()
+#	def test_message_inbox():
+#		app = wx.PyWidgetTester(size = (800, 600))
+#		app.SetWidget(cProviderInboxPnl, -1)
+#		app.MainLoop()
 
-	def test_msg_ea():
-		app = wx.PyWidgetTester(size = (800, 600))
-		app.SetWidget(cInboxMessageEAPnl, -1)
-		app.MainLoop()
+#	def test_msg_ea():
+#		app = wx.PyWidgetTester(size = (800, 600))
+#		app.SetWidget(cInboxMessageEAPnl, -1)
+#		app.MainLoop()
 
 
 	#test_message_inbox()
-	test_msg_ea()
+#	test_msg_ea()
 
 #============================================================

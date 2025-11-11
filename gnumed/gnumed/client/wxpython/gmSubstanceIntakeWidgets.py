@@ -13,6 +13,14 @@ import wx
 
 if __name__ == '__main__':
 	sys.path.insert(0, '../../')
+	_ = lambda x:x
+else:
+	try:
+		_
+	except NameError:
+		from Gnumed.pycommon import gmI18N
+		gmI18N.activate_locale()
+		gmI18N.install_domain()
 
 from Gnumed.pycommon import gmTools
 from Gnumed.pycommon import gmDateTime
@@ -286,10 +294,7 @@ class cSubstanceIntakeEAPnl(wxgSubstanceIntakeEAPnl.wxgSubstanceIntakeEAPnl, gmE
 				gfr['unified_abbrev'],
 				gfr['unified_val'],
 				gmTools.coalesce(gfr['abnormality_indicator'], '', ' (%s)'),
-				gmDateTime.pydt_strftime (
-					gfr['clin_when'],
-					format = '%Y %b %d'
-				)
+				gfr['clin_when'].strftime('%Y %b %d')
 			))
 			tt_lines.append(_('GFR reported by path lab'))
 
@@ -976,6 +981,11 @@ if __name__ == '__main__':
 
 	if sys.argv[1] != 'test':
 		sys.exit()
+
+	del _
+	from Gnumed.pycommon import gmI18N
+	gmI18N.activate_locale()
+	gmI18N.install_domain('gnumed')
 
 	from Gnumed.wxpython import gmGuiTest
 	#----------------------------------------

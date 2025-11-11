@@ -317,17 +317,17 @@ if __name__ == '__main__':
 	from Gnumed.pycommon import gmI18N
 	gmI18N.activate_locale()
 	gmI18N.install_domain()
-	from Gnumed.business import gmPersonSearch
+#	from Gnumed.business import gmPersonSearch
 
 	#--------------------------------------------------------
-	def test_person_comms_pnl():
-		pat = gmPersonSearch.ask_for_patient()
-		app = wx.PyWidgetTester(size = (600, 400))
-		widget = cCommChannelsManagerPnl(app.frame, -1)
-		widget.identity = pat
-		app.frame.Show(True)
-		app.MainLoop()
+#	def test_person_comms_pnl():
+#		pat = gmPersonSearch.ask_for_patient()
+#		app = wx.PyWidgetTester(size = (600, 400))
+#		widget = cCommChannelsManagerPnl(app.frame, -1)
+#		widget.identity = pat
+#		app.frame.Show(True)
+#		app.MainLoop()
 	#--------------------------------------------------------
-	test_person_comms_pnl()
+#	test_person_comms_pnl()
 
 #================================================================

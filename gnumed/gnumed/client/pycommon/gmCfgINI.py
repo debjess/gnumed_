@@ -1,4 +1,32 @@
 """GNUmed INI style configuration handling.
+
+Am Thu, May 22, 2025 at 11:45:31PM -0400 schrieb Grant Edwards via Python-list:
+
+There is sort of a traditional set of locations where
+applications look to find a config file:
+
+  $HOME/
+  $HOME/.config/
+  $HOME/.config/<appname>/
+  /etc/
+  /etc/<appname>/
+  /usr/local/etc/
+  /usr/local/etc/<appname>/
+  <location specified by command line argument>
+  <location specified by ENV variable>
+
+The last two overried all of the others.
+
+Config files that reside in $HOME/ usually start with a dot. Often
+they end in 'rc'.  Config files in other directories usually don't
+start with a dot.
+
+There's usually an <appname> directory only when an app needs multiple
+config files. If an app only has one config file, tradition is that
+you don't need a directory for it.
+
+Many applications will parse two config files: a global one from /etc
+or /usr/local/ and a user-one from somewhere under $HOME.
 """
 #==================================================================
 __author__ = "Karsten Hilbert <Karsten.Hilbert@gmx.net>"
@@ -356,26 +384,26 @@ class gmCfgData(gmBorg.cBorg):
 
 		self.__cfg_data[source] = data
 	#--------------------------------------------------
-	def add_file_source(self, source=None, file=None, encoding='utf8'):
+	def add_file_source(self, source=None, filename=None, encoding='utf8'):
 		"""Add a source (a file) to the instance."""
 
-		_log.info('file source "%s": %s (%s)', source, file, encoding)
+		_log.info('file source "%s": %s (%s)', source, filename, encoding)
 
 		for existing_source, existing_file in self.source_files.items():
-			if existing_file == file:
+			if existing_file == filename:
 				if source != existing_source:
-					_log.warning('file [%s] already known as source [%s]', file, existing_source)
+					_log.warning('file [%s] already known as source [%s]', filename, existing_source)
 					_log.warning('adding it as source [%s] may provoke trouble', source)
 
 		cfg_file = None
-		if file is not None:
+		if filename is not None:
 			try:
-				cfg_file = open(file, mode = 'rt', encoding = encoding)
+				cfg_file = open(filename, mode = 'rt', encoding = encoding)
 			except IOError:
-				_log.error('cannot open [%s], keeping as dummy source', file)
+				_log.error('cannot open [%s], keeping as dummy source', filename)
 
 		if cfg_file is None:
-			file = None
+			filename = None
 			if source in self.__cfg_data:
 				_log.warning('overriding source <%s> with dummy', source)
 			self.__cfg_data[source] = {}
@@ -383,7 +411,8 @@ class gmCfgData(gmBorg.cBorg):
 			self.add_stream_source(source = source, stream = cfg_file)
 			cfg_file.close()
 
-		self.source_files[source] = file
+		self.source_files[source] = filename
+
 	#--------------------------------------------------
 	def remove_source(self, source):
 		"""Remove a source from the instance."""
@@ -399,17 +428,19 @@ class gmCfgData(gmBorg.cBorg):
 			del self.source_files[source]
 		except KeyError:
 			pass
+
 	#--------------------------------------------------
-	def reload_file_source(self, file=None, encoding='utf8'):
-		if file not in self.source_files.values():
+	def reload_file_source(self, filename=None, encoding='utf8'):
+		if filename not in self.source_files.values():
 			return
 
 		for src, fname in self.source_files.items():
-			if fname == file:
-				self.add_file_source(source = src, file = fname, encoding = encoding)
+			if fname == filename:
+				self.add_file_source(source = src, filename = fname, encoding = encoding)
 				# don't break the loop because there could be other sources
 				# with the same file (not very reasonable, I know)
 				#break
+
 	#--------------------------------------------------
 	def add_cli(self, short_options='', long_options=None):
 		"""Add command line parameters to config data.
@@ -424,17 +455,20 @@ class gmCfgData(gmBorg.cBorg):
 		_log.info('adding command line arguments')
 		_log.debug('raw command line is:')
 		_log.debug('%s', sys.argv)
-
 		import getopt
-
 		if long_options is None:
 			long_options = []
-
-		opts, remainder = getopt.gnu_getopt (
-			sys.argv[1:],
-			short_options,
-			long_options
-		)
+		try:
+			opts, remainder = getopt.gnu_getopt (
+				sys.argv[1:],
+				short_options,
+				long_options
+			)
+		except getopt.GetoptError as exc:
+			_log.exception('error parsing command line options')
+			print('GNUmed startup: error loading command line options')
+			print('GNUmed startup:', exc)
+			return False
 
 		data = {}
 		for opt, val in opts:
@@ -442,8 +476,9 @@ class gmCfgData(gmBorg.cBorg):
 				data['%s::%s' % ('cli', opt)] = True
 			else:
 				data['%s::%s' % ('cli', opt)] = val
-
 		self.__cfg_data['cli'] = data
+		return True
+
 #==================================================================
 # main
 #==================================================================
@@ -465,7 +500,7 @@ if __name__ == "__main__":
 		print (cfg.get(option = '-?', source_order = [('cli', 'return')]))
 		fname = cfg.get(option = '--conf-file', source_order = [('cli', 'return')])
 		if fname is not None:
-			cfg.add_file_source(source = 'explicit', file = fname)
+			cfg.add_file_source(source = 'explicit', filename = fname)
 	#-----------------------------------------
 	def test_set_list_opt():
 		src = [
@@ -529,7 +564,7 @@ if __name__ == "__main__":
 			print(key, data[key])
 		input()
 		_cfg = gmCfgData()
-		_cfg.add_file_source(source = 'prefs', file = sys.argv[2])
+		_cfg.add_file_source(source = 'prefs', filename = sys.argv[2])
 		print(_cfg.get('preferences', 'login', [('prefs', 'return')]))
 		print(_cfg.get('preferences', 'most recently used praxis branch', [('prefs', 'return')]))
 

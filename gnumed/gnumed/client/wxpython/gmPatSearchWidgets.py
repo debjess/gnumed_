@@ -311,9 +311,9 @@ class cSelectPersonDTOFromListDlg(wxgSelectPersonDTOFromListDlg.wxgSelectPersonD
 				self._LCTRL_persons.SetItem(row_num, 3, '')
 			else:
 				if dto.dob_is_estimated:
-					self._LCTRL_persons.SetItem(row_num, 3, gmTools.u_almost_equal_to + gmDateTime.pydt_strftime(dto.dob, '%Y %b %d'))
+					self._LCTRL_persons.SetItem(row_num, 3, gmTools.u_almost_equal_to + gmDateTime.pydt_strftime(dto.dob, '%Y %b %d'), none_str = '?')
 				else:
-					self._LCTRL_persons.SetItem(row_num, 3, gmDateTime.pydt_strftime(dto.dob, '%Y %b %d'))
+					self._LCTRL_persons.SetItem(row_num, 3, gmDateTime.pydt_strftime(dto.dob, '%Y %b %d', none_str = '?'))
 			self._LCTRL_persons.SetItem(row_num, 4, gmTools.coalesce(dto.gender, ''))
 
 		for col in range(len(self.__cols)):
@@ -610,7 +610,10 @@ def load_person_from_vcard_file():
 				'%s %s (%s)\n'
 				'%s'
 				) % (
-					dto.firstnames, dto.lastnames, dto.gender, gmDateTime.pydt_strftime(dto.dob, '%Y %b %d')
+					dto.firstnames,
+					dto.lastnames,
+					dto.gender,
+					gmDateTime.pydt_strftime(dto.dob, '%Y %b %d', none_str = '?')
 				),
 				_('Activating external patient')
 			)
@@ -629,7 +632,10 @@ def load_person_from_vcard_file():
 			'%s %s (%s)\n'
 			'%s'
 			) % (
-				dto.firstnames, dto.lastnames, dto.gender, gmDateTime.pydt_strftime(dto.dob, '%Y %b %d')
+				dto.firstnames,
+				dto.lastnames,
+				dto.gender,
+				gmDateTime.pydt_strftime(dto.dob, '%Y %b %d', none_str = '?')
 			),
 			_('Activating external patient')
 		)
@@ -660,7 +666,10 @@ def load_person_from_vcard_via_clipboard():
 				'%s %s (%s)\n'
 				'%s'
 				) % (
-					dto.firstnames, dto.lastnames, dto.gender, gmDateTime.pydt_strftime(dto.dob, '%Y %b %d')
+					dto.firstnames,
+					dto.lastnames,
+					dto.gender,
+					gmDateTime.pydt_strftime(dto.dob, '%Y %b %d', none_str = '?')
 				),
 				_('Activating external patient')
 			)
@@ -679,7 +688,10 @@ def load_person_from_vcard_via_clipboard():
 			'%s %s (%s)\n'
 			'%s'
 			) % (
-				dto.firstnames, dto.lastnames, dto.gender, gmDateTime.pydt_strftime(dto.dob, '%Y %b %d')
+				dto.firstnames,
+				dto.lastnames,
+				dto.gender,
+				gmDateTime.pydt_strftime(dto.dob, '%Y %b %d', none_str = '?')
 			),
 			_('Activating external patient')
 		)
@@ -708,9 +720,11 @@ def load_person_from_xml_linuxmednews_via_clipboard():
 			gmGuiHelpers.gm_show_info (_(
 				'Cannot activate patient:\n\n'
 				'%s %s (%s)\n'
-				'%s'
-				) % (
-					dto.firstnames, dto.lastnames, dto.gender, gmDateTime.pydt_strftime(dto.dob, '%Y %b %d')
+				'%s') % (
+					dto.firstnames,
+					dto.lastnames,
+					dto.gender,
+					gmDateTime.pydt_strftime(dto.dob, '%Y %b %d', none_str = '?')
 				),
 				_('Activating external patient')
 			)
@@ -729,7 +743,10 @@ def load_person_from_xml_linuxmednews_via_clipboard():
 			'%s %s (%s)\n'
 			'%s'
 			) % (
-				dto.firstnames, dto.lastnames, dto.gender, gmDateTime.pydt_strftime(dto.dob, '%Y %b %d')
+				dto.firstnames,
+				dto.lastnames,
+				dto.gender,
+				gmDateTime.pydt_strftime(dto.dob, '%Y %b %d', none_str = '?')
 			),
 			_('Activating external patient')
 		)
@@ -799,7 +816,10 @@ def get_person_from_external_sources(parent=None, search_immediately=False, acti
 			'Cannot create new patient:\n\n'
 			' [%s %s (%s), %s]'
 			) % (
-				dto.firstnames, dto.lastnames, dto.gender, gmDateTime.pydt_strftime(dto.dob, '%Y %b %d')
+				dto.firstnames,
+				dto.lastnames,
+				dto.gender,
+				gmDateTime.pydt_strftime(dto.dob, '%Y %b %d', none_str = '?')
 			),
 			_('Activating external patient')
 		)
@@ -824,9 +844,11 @@ def get_person_from_external_sources(parent=None, search_immediately=False, acti
 			gmGuiHelpers.gm_show_info (_(
 				'Cannot activate patient:\n\n'
 				'%s %s (%s)\n'
-				'%s'
-				) % (
-					dto.firstnames, dto.lastnames, dto.gender, gmDateTime.pydt_strftime(dto.dob, '%Y %b %d')
+				'%s') % (
+					dto.firstnames,
+					dto.lastnames,
+					dto.gender,
+					gmDateTime.pydt_strftime(dto.dob, '%Y %b %d', none_str = '?')
 				),
 				_('Activating external patient')
 			)
@@ -1385,7 +1407,7 @@ class cActivePatientSelector(cPersonSearchCtrl):
 			_log.warning("dismissing patient before patient search")
 			self._set_person_as_active_patient(-1)
 
-		super(self.__class__, self)._on_enter(search_term=search_term)
+		super()._on_enter(search_term=search_term)
 
 		if self.person is None:
 			return
@@ -1394,7 +1416,7 @@ class cActivePatientSelector(cPersonSearchCtrl):
 	#----------------------------------------------
 	def _on_char(self, evt):
 
-		success = super(self.__class__, self)._on_char(evt)
+		success = super()._on_char(evt)
 		if success:
 			self._set_person_as_active_patient(self.person)
 

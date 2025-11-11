@@ -71,7 +71,7 @@ def show_audit_trail(parent=None):
 	#-----------------------------------
 	def refresh(lctrl):
 		cmd = 'SELECT * FROM audit.v_audit_trail ORDER BY audit_when_ts'
-		rows = gmPG2.run_ro_queries(link_obj = conn, queries = [{'cmd': cmd}])
+		rows = gmPG2.run_ro_queries(link_obj = conn, queries = [{'sql': cmd}])
 		lctrl.set_string_items (
 			[ [
 				r['event_when'],
@@ -446,7 +446,7 @@ def __update_most_recently_selected_branch(branch):
 		option = 'most recently used praxis branch',
 		value = branch.format(one_line = True)
 	)
-	_cfg.reload_file_source(file = prefs_file)
+	_cfg.reload_file_source(filename = prefs_file)
 
 #============================================================
 def __get_most_recently_selected_branch():

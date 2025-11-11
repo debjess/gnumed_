@@ -16,11 +16,16 @@ from wx.lib.mixins import inspection
 
 if __name__ == '__main__':
 	sys.path.insert(0, '../../')
-
-from Gnumed.pycommon import gmI18N
-gmI18N.activate_locale()
-gmI18N.install_domain()
+	_ = lambda x:x
+else:
+	try:
+		_
+	except NameError:
+		from Gnumed.pycommon import gmI18N
+		gmI18N.activate_locale()
+		gmI18N.install_domain()
 from Gnumed.pycommon import gmPG2
+from Gnumed.pycommon import gmLog2
 
 from Gnumed.business import gmPraxis
 from Gnumed.business import gmPerson
@@ -34,7 +39,7 @@ _log = logging.getLogger('gm.guitest')
 def test_widget(widget_class, *widget_args, patient:int=-1, size=None, setup_db:bool=True, **widget_kwargs):
 	if setup_db:
 		gmPG2.request_login_params(setup_pool = True, force_tui = True)
-	gmPraxis.activate_first_praxis_branch()
+	gmPraxis.gmCurrentPraxisBranch.from_first_branch()
 	if not __activate_patient(patient = patient):
 		sys.exit()
 
@@ -52,7 +57,7 @@ def test_widget(widget_class, *widget_args, patient:int=-1, size=None, setup_db:
 	try:
 		app.MainLoop()
 	except Exception:
-		_log.log_stack_trace(message = 'test failure')
+		gmLog2.log_stack_trace(message = 'test failure')
 	return widget
 
 #==============================================================================
@@ -79,7 +84,7 @@ def setup_widget_test_env(patient=-1):
 	gmPG2.request_login_params(setup_pool = True, force_tui = True)
 	if not __activate_patient(patient = patient):
 		sys.exit()
-	gmPraxis.activate_first_praxis_branch()
+	gmPraxis.gmCurrentPraxisBranch.from_first_branch()
 	gmStaff.set_current_provider_to_logged_on_user()
 
 	app = inspection.InspectableApp()
@@ -118,6 +123,12 @@ if __name__ == '__main__':
 
 	if sys.argv[1] != 'test':
 		sys.exit()
+
+	# setup a real translation
+	del _
+	from Gnumed.pycommon import gmI18N
+	gmI18N.activate_locale()
+	gmI18N.install_domain('gnumed')
 
 	#--------------------------------------------------------------------------
 	def test__test_widget():

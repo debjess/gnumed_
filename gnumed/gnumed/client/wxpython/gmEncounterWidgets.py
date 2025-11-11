@@ -26,7 +26,7 @@ from Gnumed.pycommon import gmTools
 from Gnumed.pycommon import gmDispatcher
 from Gnumed.pycommon import gmMatchProvider
 
-from Gnumed.business import gmEMRStructItems
+from Gnumed.business import gmEncounter
 from Gnumed.business import gmPraxis
 from Gnumed.business import gmPerson
 from Gnumed.business import gmStaff
@@ -73,7 +73,7 @@ def _ask_for_encounter_continuation(new_encounter=None, fairly_recent_encounter=
 		' (If not a new one will be used.)\n'
 	) % (
 		curr_pat.get_description_gender(with_nickname = False),
-		gmDateTime.pydt_strftime(curr_pat['dob'], '%Y %b %d'),
+		curr_pat.get_formatted_dob('%Y %b %d'),
 		curr_pat.ID,
 		fairly_recent_encounter.format (
 			episodes = None,
@@ -110,7 +110,7 @@ def _ask_for_encounter_continuation(new_encounter=None, fairly_recent_encounter=
 		_log.info('user wants to continue fairly-recent encounter')
 		curr_pat.emr.active_encounter = fairly_recent_encounter
 		if new_encounter.transfer_all_data_to_another_encounter(pk_target_encounter = fairly_recent_encounter['pk_encounter']):
-			if not gmEMRStructItems.delete_encounter(pk_encounter = new_encounter['pk_encounter']):
+			if not gmEncounter.delete_encounter(pk_encounter = new_encounter['pk_encounter']):
 				gmGuiHelpers.gm_show_info (
 					_('Properly switched to fairly recent encounter but unable to delete newly-created encounter.'),
 					_('Pulling chart')
@@ -188,7 +188,7 @@ def sanity_check_encounter_of_active_patient(parent=None, msg=None):
 	if not has_narr:
 		if empty_aoe:
 			enc['assessment_of_encounter'] = _('only documents added')
-		enc['pk_type'] = gmEMRStructItems.get_encounter_type(description = 'chart review')[0]['pk']
+		enc['pk_type'] = gmEncounter.get_encounter_type(description = 'chart review')[0]['pk']
 		# "last_affirmed" should be latest modified_at of relevant docs but that's a lot more involved
 		enc.save_payload()
 		return True
@@ -246,14 +246,14 @@ def select_encounters(parent=None, patient=None, single_selection=True, encounte
 			workplace = gmPraxis.gmCurrentPraxisBranch().active_workplace
 		)
 		if enc_type is None:
-			enc_type = gmEMRStructItems.get_most_commonly_used_encounter_type()
+			enc_type = gmEncounter.get_most_commonly_used_encounter_type()
 		if enc_type is None:
 			enc_type = 'in surgery'
-		enc = gmEMRStructItems.create_encounter(fk_patient = patient.ID, enc_type = enc_type)
+		enc = gmEncounter.create_encounter(fk_patient = patient.ID, enc_type = enc_type)
 		saved = edit_encounter(parent = parent, encounter = enc)
 		if saved:
 			return True
-		gmEMRStructItems.delete_encounter(pk_encounter = enc['pk_encounter'])
+		gmEncounter.delete_encounter(pk_encounter = enc['pk_encounter'])
 		return False
 	#--------------------
 	def edit(enc=None):
@@ -286,7 +286,7 @@ def select_encounters(parent=None, patient=None, single_selection=True, encounte
 		)
 		if not delete_it:
 			return False
-		if gmEMRStructItems.delete_encounter(pk_encounter = enc['pk_encounter']):
+		if gmEncounter.delete_encounter(pk_encounter = enc['pk_encounter']):
 			return True
 		gmDispatcher.send (
 			signal = 'statustext',
@@ -318,7 +318,10 @@ def select_encounters(parent=None, patient=None, single_selection=True, encounte
 
 		items = [
 			[
-				'%s - %s' % (gmDateTime.pydt_strftime(e['started'], '%Y %b %d  %H:%M'), e['last_affirmed'].strftime('%H:%M')),
+				'%s - %s' % (
+					e['started'].strftime('%Y %b %d  %H:%M'),
+					e['last_affirmed'].strftime('%H:%M')
+				),
 				e['l10n_type'],
 				gmTools.coalesce(e['praxis_branch'], ''),
 				gmTools.coalesce(e['reason_for_encounter'], ''),
@@ -408,7 +411,7 @@ class cEncounterPhraseWheel(gmPhraseWheel.cPhraseWheel):
 	#--------------------------------------------------------
 	def set_from_instance(self, instance):
 		val = '%s: %s' % (
-			gmDateTime.pydt_strftime(instance['started'], '%Y %b %d'),
+			instance['started'].strftime('%Y %b %d'),
 			instance['l10n_type']
 		)
 		self.SetText(value = val, data = instance['pk_encounter'])
@@ -416,7 +419,7 @@ class cEncounterPhraseWheel(gmPhraseWheel.cPhraseWheel):
 	def _get_data_tooltip(self):
 		if self.GetData() is None:
 			return None
-		enc = gmEMRStructItems.cEncounter(aPK_obj = list(self._data.values())[0]['data'])
+		enc = gmEncounter.cEncounter(aPK_obj = list(self._data.values())[0]['data'])
 		return enc.format (
 			with_docs = False,
 			with_tests = False,
@@ -768,7 +771,7 @@ def manage_encounter_types(parent=None):
 		return edit_encounter_type(parent = parent, encounter_type = enc_type)
 	#--------------------
 	def delete(enc_type=None):
-		if gmEMRStructItems.delete_encounter_type(description = enc_type['description']):
+		if gmEncounter.delete_encounter_type(description = enc_type['description']):
 			return True
 		gmDispatcher.send (
 			signal = 'statustext',
@@ -778,7 +781,7 @@ def manage_encounter_types(parent=None):
 		return False
 	#--------------------
 	def refresh(lctrl):
-		enc_types = gmEMRStructItems.get_encounter_types()
+		enc_types = gmEncounter.get_encounter_types()
 		lctrl.set_string_items(items = enc_types)
 	#--------------------
 	gmListWidgets.get_choices_from_list (
@@ -838,7 +841,7 @@ class cEncounterTypeEditAreaPnl(wxgEncounterTypeEditAreaPnl.wxgEncounterTypeEdit
 		return no_errors
 	#-------------------------------------------------------
 	def _save_as_new(self):
-		enc_type = gmEMRStructItems.create_encounter_type (
+		enc_type = gmEncounter.create_encounter_type (
 			description = gmTools.none_if(self._TCTRL_name.GetValue().strip(), ''),
 			l10n_description = gmTools.coalesce (
 				gmTools.none_if(self._TCTRL_l10n_name.GetValue().strip(), ''),
@@ -851,7 +854,7 @@ class cEncounterTypeEditAreaPnl(wxgEncounterTypeEditAreaPnl.wxgEncounterTypeEdit
 		return True
 	#-------------------------------------------------------
 	def _save_as_update(self):
-		enc_type = gmEMRStructItems.update_encounter_type (
+		enc_type = gmEncounter.update_encounter_type (
 			description = self._TCTRL_name.GetValue().strip(),
 			l10n_description = self._TCTRL_l10n_name.GetValue().strip()
 		)
@@ -943,24 +946,24 @@ if __name__ == '__main__':
 	gmI18N.install_domain()
 
 	#----------------------------------------------------------------
-	def test_encounter_edit_area_panel():
-		app = wx.PyWidgetTester(size = (200, 300))
+#	def test_encounter_edit_area_panel():
+		#app = wx.PyWidgetTester(size = (200, 300))
 		#emr = pat.emr
 		#enc = emr.active_encounter
-		enc = gmEMRStructItems.cEncounter(1)
+		#enc = gmEncounter.cEncounter(1)
 		#pnl = 
-		cEncounterEditAreaPnl(app.frame, -1, encounter=enc)
-		app.frame.Show(True)
-		app.MainLoop()
+		#cEncounterEditAreaPnl(app.frame, -1, encounter=enc)
+		#app.frame.Show(True)
+		#app.MainLoop()
 
 	#----------------------------------------------------------------
-	def test_encounter_edit_area_dialog():
-		app = wx.PyWidgetTester(size = (200, 300))
+#	def test_encounter_edit_area_dialog():
+		#app = wx.PyWidgetTester(size = (200, 300))
 		#emr = pat.emr
 		#enc = emr.active_encounter
-		enc = gmEMRStructItems.cEncounter(1)
-		dlg = cEncounterEditAreaDlg(parent=app.frame, id=-1, size = (400,400), encounter=enc)
-		dlg.ShowModal()
+#		enc = gmEncounter.cEncounter(1)
+		#dlg = cEncounterEditAreaDlg(parent=app.frame, id=-1, size = (400,400), encounter=enc)
+		#dlg.ShowModal()
 #		pnl = cEncounterEditAreaDlg(app.frame, -1, encounter=enc)
 #		app.frame.Show(True)
 #		app.MainLoop()

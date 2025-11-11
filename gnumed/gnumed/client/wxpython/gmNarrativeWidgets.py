@@ -17,14 +17,15 @@ if __name__ == '__main__':
 
 from Gnumed.pycommon import gmDispatcher
 from Gnumed.pycommon import gmTools
-from Gnumed.pycommon import gmDateTime
 from Gnumed.pycommon import gmCfgDB
 
 from Gnumed.business import gmPerson
-from Gnumed.business import gmEMRStructItems
+from Gnumed.business import gmHealthIssue
 from Gnumed.business import gmSoapDefs
 from Gnumed.business import gmPraxis
 from Gnumed.business import gmPersonSearch
+from Gnumed.business import gmEpisode
+from Gnumed.business import gmProblem
 
 from Gnumed.wxpython import gmListWidgets
 from Gnumed.wxpython import gmEMRStructWidgets
@@ -75,10 +76,10 @@ class cMoveNarrativeDlg(wxgMoveNarrativeDlg.wxgMoveNarrativeDlg):
 
 		self.LBL_source_episode.SetLabel('%s%s' % (self.source_episode['description'], gmTools.coalesce(self.source_episode['health_issue'], '', ' (%s)')))
 		self.LBL_encounter.SetLabel('%s: %s %s - %s' % (
-			gmDateTime.pydt_strftime(self.encounter['started'], '%Y %b %d'),
+			self.encounter['started'].strftime('%Y %b %d'),
 			self.encounter['l10n_type'],
-			gmDateTime.pydt_strftime(self.encounter['started'], '%H:%M'),
-			gmDateTime.pydt_strftime(self.encounter['last_affirmed'], '%H:%M')
+			self.encounter['started'].strftime('%H:%M'),
+			self.encounter['last_affirmed'].strftime('%H:%M')
 		))
 		pat = gmPerson.gmCurrentPatient()
 		emr = pat.emr
@@ -98,7 +99,7 @@ class cMoveNarrativeDlg(wxgMoveNarrativeDlg.wxgMoveNarrativeDlg):
 			self._PRW_episode_selector.SetFocus()
 			return False
 
-		target_episode = gmEMRStructItems.cEpisode(aPK_obj=target_episode)
+		target_episode = gmEpisode.cEpisode(aPK_obj=target_episode)
 
 		self.encounter.transfer_clinical_data (
 			source_episode = self.source_episode,
@@ -202,7 +203,7 @@ class cSoapPluginPnl(wxgSoapPluginPnl.wxgSoapPluginPnl, gmRegetMixin.cRegetOnPai
 			active_problems.append(problem)
 
 			if problem['type'] == 'issue':
-				issue = gmEMRStructItems.cHealthIssue.from_problem(problem)
+				issue = gmHealthIssue.cHealthIssue.from_problem(problem)
 				last_encounter = emr.get_last_encounter(issue_id = issue['pk_health_issue'])
 				if last_encounter is None:
 					last = issue['modified_when'].strftime('%m/%Y')
@@ -212,7 +213,7 @@ class cSoapPluginPnl(wxgSoapPluginPnl.wxgSoapPluginPnl, gmRegetMixin.cRegetOnPai
 				list_items.append([last, problem['problem'], gmTools.u_left_arrow_with_tail])
 
 			elif problem['type'] == 'episode':
-				epi = gmEMRStructItems.cEpisode.from_problem(problem)
+				epi = gmEpisode.cEpisode.from_problem(problem)
 				last_encounter = emr.get_last_encounter(episode_id = epi['pk_episode'])
 				if last_encounter is None:
 					last = epi['episode_modified_when'].strftime('%m/%Y')
@@ -380,11 +381,11 @@ class cSoapPluginPnl(wxgSoapPluginPnl.wxgSoapPluginPnl, gmRegetMixin.cRegetOnPai
 		pass
 	#--------------------------------------------------------
 	def _on_edit_issue(self, evt):
-		gmEMRStructWidgets.edit_health_issue(parent = self, issue = self.__focussed_problem.get_as_health_issue())
+		gmEMRStructWidgets.edit_health_issue(parent = self, issue = self.__focussed_problem.as_health_issue)
 
 	#--------------------------------------------------------
 	def _on_edit_episode(self, evt):
-		gmEMRStructWidgets.edit_episode(parent = self, episode = self.__focussed_problem.get_as_episode())
+		gmEMRStructWidgets.edit_episode(parent = self, episode = self.__focussed_problem.as_episode)
 
 	#--------------------------------------------------------
 	def _on_problem_selected(self, event):
@@ -782,27 +783,18 @@ class cSoapNoteInputNotebook(wx.Notebook):
 		The way <allow_same_problem> is currently used in callers
 		it only applies to unassociated episodes.
 		"""
-		problem_to_add = problem
-
 		# determine label
-		if problem_to_add is None:
+		if problem is None:
 			label = _('new problem')
+			problem_to_add = None
 		else:
 			# normalize problem type
-			if isinstance(problem_to_add, gmEMRStructItems.cEpisode):
-				problem_to_add = gmEMRStructItems.episode2problem(episode = problem_to_add, allow_closed = True)
+			problem_to_add = gmProblem.cProblem.from_issue_or_episode(problem)
+			if not isinstance(problem_to_add, gmProblem.cProblem):
+				raise TypeError('cannot open progress note editor for [%s]' % problem)
 
-			elif isinstance(problem_to_add, gmEMRStructItems.cHealthIssue):
-				problem_to_add = gmEMRStructItems.health_issue2problem(health_issue = problem_to_add, allow_irrelevant = True)
-
-			if not isinstance(problem_to_add, gmEMRStructItems.cProblem):
-				raise TypeError('cannot open progress note editor for [%s]' % problem_to_add)
-
-			label = problem_to_add['problem']
 			# FIXME: configure maximum length
-			if len(label) > 23:
-				label = label[:21] + gmTools.u_ellipsis
-
+			label = gmTools.shorten_text(text = problem_to_add['problem'],	max_length = 23)
 		# new unassociated problem or dupes allowed
 		if allow_same_problem:
 			new_page = gmProgressNotesEAWidgets.cProgressNotesEAPnl(self, -1, problem = problem_to_add)
@@ -817,7 +809,6 @@ class cSoapNoteInputNotebook(wx.Notebook):
 		# - raise existing editor
 		for page_idx in range(self.GetPageCount()):
 			page = self.GetPage(page_idx)
-
 			if problem_to_add is None:
 				if page.problem is None:
 					self.SetSelection(page_idx)
@@ -1183,7 +1174,7 @@ class cSimpleSoapPluginPnl(wxgSimpleSoapPluginPnl.wxgSimpleSoapPluginPnl, gmRege
 		epi = self._LCTRL_problems.get_selected_item_data(only_one = True)
 		if epi is None:
 			return
-		if not gmEMRStructItems.delete_episode(episode = epi):
+		if not gmEpisode.delete_episode(episode = epi):
 			gmDispatcher.send(signal = 'statustext', msg = _('Cannot delete problem. There is still clinical data recorded for it.'))
 	#-----------------------------------------------------
 	def _on_save_soap_button_pressed(self, event):
@@ -1221,10 +1212,10 @@ if __name__ == '__main__':
 			return
 		set_active_patient(patient=patient)
 
-		application = wx.PyWidgetTester(size=(800,500))
-		soap_input = cSoapPluginPnl(application.frame, -1)
-		application.frame.Show(True)
-		soap_input._schedule_data_reget()
-		application.MainLoop()
+#		application = wx.PyWidgetTester(size=(800,500))
+#		soap_input = cSoapPluginPnl(application.frame, -1)
+#		application.frame.Show(True)
+#		soap_input._schedule_data_reget()
+#		application.MainLoop()
 	#----------------------------------------
 	#test_cSoapPluginPnl()
