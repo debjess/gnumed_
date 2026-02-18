@@ -22,6 +22,7 @@ import json
 import shutil
 import zipfile
 import importlib
+import importlib.util
 import datetime as pydt
 import re as regex
 import xml.sax.saxutils as xml_tools
@@ -1140,17 +1141,36 @@ def import_module_from_directory(module_path=None, module_name=None, always_remo
 
 	_log.debug('will remove import path: %s', remove_path)
 
+	module_name_raw = module_name
 	if module_name.endswith('.py'):
 		module_name = module_name[:-3]
+
+	module_file = os.path.join(module_path, module_name_raw)
+	if module_name_raw == module_name:
+		module_file = '%s.py' % module_file
 
 	try:
 		#module = __import__(module_name)
 		module = importlib.import_module(module_name)
+		if module_name not in sys.modules:
+			sys.modules[module_name] = module
 	except Exception:
-		_log.exception('cannot __import__() module [%s] from [%s]' % (module_name, module_path))
-		while module_path in sys.path:
-			sys.path.remove(module_path)
-		raise
+		if not os.path.exists(module_file):
+			_log.exception('cannot __import__() module [%s] from [%s]' % (module_name, module_path))
+			while module_path in sys.path:
+				sys.path.remove(module_path)
+			raise
+
+		try:
+			spec = importlib.util.spec_from_file_location(module_name, module_file)
+			module = importlib.util.module_from_spec(spec)
+			sys.modules[module_name] = module
+			spec.loader.exec_module(module)
+		except Exception:
+			_log.exception('cannot __import__() module [%s] from [%s]' % (module_name, module_path))
+			while module_path in sys.path:
+				sys.path.remove(module_path)
+			raise
 
 	_log.info('imported module [%s] as [%s]' % (module_name, module))
 	if remove_path:
