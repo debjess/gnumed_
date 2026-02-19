@@ -1149,35 +1149,37 @@ def import_module_from_directory(module_path=None, module_name=None, always_remo
 	if module_name_raw == module_name:
 		module_file = '%s.py' % module_file
 
+	def _raise_import_error(cause):
+		msg = 'cannot __import__() module [%s] from [%s]' % (module_name, module_path)
+		_log.exception(msg)
+		raise ImportError(msg) from cause
+
 	try:
-		#module = __import__(module_name)
-		module = importlib.import_module(module_name)
-		if module_name not in sys.modules:
-			sys.modules[module_name] = module
-	except Exception:
-		if not os.path.exists(module_file):
-			_log.exception('cannot __import__() module [%s] from [%s]' % (module_name, module_path))
-			while module_path in sys.path:
-				sys.path.remove(module_path)
-			raise
-
 		try:
-			spec = importlib.util.spec_from_file_location(module_name, module_file)
-			module = importlib.util.module_from_spec(spec)
-			sys.modules[module_name] = module
-			spec.loader.exec_module(module)
-		except Exception:
-			_log.exception('cannot __import__() module [%s] from [%s]' % (module_name, module_path))
+			#module = __import__(module_name)
+			module = importlib.import_module(module_name)
+			if module_name not in sys.modules:
+				sys.modules[module_name] = module
+		except Exception as first_error:
+			if not os.path.exists(module_file):
+				_raise_import_error(first_error)
+
+			try:
+				spec = importlib.util.spec_from_file_location(module_name, module_file)
+				if spec is None or spec.loader is None:
+					raise ImportError('unable to build import spec for [%s]' % module_file)
+				module = importlib.util.module_from_spec(spec)
+				sys.modules[module_name] = module
+				spec.loader.exec_module(module)
+			except Exception as second_error:
+				_raise_import_error(second_error)
+
+		_log.info('imported module [%s] as [%s]' % (module_name, module))
+		return module
+	finally:
+		if remove_path:
 			while module_path in sys.path:
 				sys.path.remove(module_path)
-			raise
-
-	_log.info('imported module [%s] as [%s]' % (module_name, module))
-	if remove_path:
-		while module_path in sys.path:
-			sys.path.remove(module_path)
-
-	return module
 
 #===========================================================================
 # text related tools
