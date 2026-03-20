@@ -205,7 +205,8 @@ except ImportError:
 	missing = True
 	print("")
 	print("  ERROR: humblewx not installed")
-	print("  INFO : this is used to display the EMR timeline")
+	print("  INFO : full Timeline UI features will be unavailable")
+	print("  INFO : GNUmed will continue with the EMR timeline in viewer mode where supported")
 
 #print "=> checking for Python module 'sane' ..."
 #try:

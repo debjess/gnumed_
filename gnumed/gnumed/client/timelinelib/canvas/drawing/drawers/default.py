@@ -32,9 +32,9 @@ from timelinelib.canvas.drawing.scene import TimelineScene
 from timelinelib.config.paths import ICONS_DIR
 from timelinelib.features.experimental.experimentalfeatures import EXTENDED_CONTAINER_HEIGHT
 from timelinelib.utils import unique_based_on_eq
-from timelinelib.wxgui.components.font import Font
+from timelinelib.wxgui.font import Font
 from wx import BRUSHSTYLE_TRANSPARENT
-import timelinelib.wxgui.components.font as font
+import timelinelib.wxgui.font as font
 
 
 OUTER_PADDING = 5  # Space between event boxes (pixels)

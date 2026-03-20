@@ -17,7 +17,7 @@
 
 
 import timelinelib.canvas.drawing.drawers.resources as resource
-import timelinelib.wxgui.components.font as font
+import timelinelib.wxgui.font as font
 
 
 class MinorStripDrawer:

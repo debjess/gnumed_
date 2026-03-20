@@ -21,7 +21,7 @@ Tests are defined :doc:`Here <unit_canvas_drawing_drawers_legenddrawer>`.
 """
 
 import wx
-import timelinelib.wxgui.components.font as font
+import timelinelib.wxgui.font as font
 from timelinelib.canvas.drawing.graphobject import GraphObject
 from timelinelib.canvas.drawing.utils import darken_color
 

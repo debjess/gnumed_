@@ -10,6 +10,7 @@ __license__ = "GPL v2 or later"
 import sys
 import logging
 import os.path
+import importlib
 
 
 # 3rd party
@@ -34,6 +35,27 @@ from Gnumed.exporters import gmTimelineExporter
 
 
 _log = logging.getLogger('gm.ui.tl')
+
+_HUMBLEWX_IMPORT_PROBED = False
+_HUMBLEWX_AVAILABLE = False
+
+
+def _probe_humblewx():
+	global _HUMBLEWX_IMPORT_PROBED, _HUMBLEWX_AVAILABLE
+	if _HUMBLEWX_IMPORT_PROBED:
+		return _HUMBLEWX_AVAILABLE
+
+	_HUMBLEWX_IMPORT_PROBED = True
+	try:
+		importlib.import_module('humblewx')
+	except ImportError:
+		_log.warning('humblewx is needed for the full Timeline UI but could not be imported; continuing in viewer-only mode with limited functionality', exc_info = True)
+		_HUMBLEWX_AVAILABLE = False
+	else:
+		_log.info('humblewx available; full Timeline functionality remains available to code paths that use it')
+		_HUMBLEWX_AVAILABLE = True
+
+	return _HUMBLEWX_AVAILABLE
 
 #============================================================
 #from Gnumed.timelinelib.canvas.data import TimePeriod
@@ -272,6 +294,7 @@ class cEMRTimelinePluginPnl(wxgEMRTimelinePluginPnl.wxgEMRTimelinePluginPnl, gmR
 	"""Panel holding a number of widgets. Used as notebook page."""
 	def __init__(self, *args, **kwargs):
 		self.__tl_file = None
+		_probe_humblewx()
 		wxgEMRTimelinePluginPnl.wxgEMRTimelinePluginPnl.__init__(self, *args, **kwargs)
 		gmRegetMixin.cRegetOnPaintMixin.__init__(self)
 #		self.__init_ui()

@@ -26,7 +26,7 @@ from timelinelib.canvas.eventboxdrawers.defaulteventboxdrawer import DefaultEven
 from timelinelib.canvas.events import create_timeline_redrawn_event
 from timelinelib import DEBUG_ENABLED
 from timelinelib.monitoring import Monitoring
-from timelinelib.wxgui.components.font import Font
+from timelinelib.wxgui.font import Font
 
 
 CHOICE_WHOLE_PERIOD = _("Whole Timeline")

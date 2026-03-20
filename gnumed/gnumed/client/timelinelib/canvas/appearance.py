@@ -19,7 +19,7 @@
 import wx
 
 from timelinelib.general.observer import Observable
-from timelinelib.wxgui.components.font import Font
+from timelinelib.wxgui.font import Font
 
 
 class Appearance(Observable):
