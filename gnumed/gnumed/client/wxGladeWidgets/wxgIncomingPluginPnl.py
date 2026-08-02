@@ -40,6 +40,10 @@ class wxgIncomingPluginPnl(wx.Panel):
 		self._BTN_add_parts.SetToolTip(_("Add entries from scanner/disc/clipboard to incoming area."))
 		__szr_parts_buttons.Add(self._BTN_add_parts, 0, wx.EXPAND | wx.RIGHT, 2)
 
+		self._BTN_refresh_items = wx.Button(self.__pnl_splitter_left, wx.ID_ANY, _("Re&fresh"), style=wx.BU_EXACTFIT)
+		self._BTN_refresh_items.SetToolTip(_("Refresh items from auto-import directories.\n\nItems are auto-imported every 3 minutes.\n\nPress this button to load files inmediately (manually)."))
+		__szr_parts_buttons.Add(self._BTN_refresh_items, 0, wx.EXPAND | wx.RIGHT, 2)
+
 		self._BTN_remove_item = wx.Button(self.__pnl_splitter_left, wx.ID_ANY, _(" &Remove "), style=wx.BU_EXACTFIT)
 		self._BTN_remove_item.SetToolTip(_("Remove highlighted entry from incoming area."))
 		__szr_parts_buttons.Add(self._BTN_remove_item, 0, wx.EXPAND | wx.RIGHT, 2)
@@ -219,6 +223,7 @@ class wxgIncomingPluginPnl(wx.Panel):
 		self.Layout()
 
 		self._BTN_add_parts.Bind(wx.EVT_BUTTON, self._on_add_parts_button_pressed)
+		self._BTN_refresh_items.Bind(wx.EVT_BUTTON, self._on_refresh_parts_button_pressed)
 		self._BTN_remove_item.Bind(wx.EVT_BUTTON, self._on_remove_part_button_pressed)
 		self._BTN_unassign_patient.Bind(wx.EVT_BUTTON, self._on_unassign_patient_button_pressed)
 		self._BTN_goto_item_patient.Bind(wx.EVT_BUTTON, self._on_goto_item_patient_button_pressed)
@@ -233,6 +238,10 @@ class wxgIncomingPluginPnl(wx.Panel):
 
 	def _on_add_parts_button_pressed(self, event):  # wxGlade: wxgIncomingPluginPnl.<event_handler>
 		print("Event handler '_on_add_parts_button_pressed' not implemented!")
+		event.Skip()
+
+	def _on_refresh_parts_button_pressed(self, event):  # wxGlade: wxgIncomingPluginPnl.<event_handler>
+		print("Event handler '_on_refresh_parts_button_pressed' not implemented!")
 		event.Skip()
 
 	def _on_remove_part_button_pressed(self, event):  # wxGlade: wxgIncomingPluginPnl.<event_handler>
