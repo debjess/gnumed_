@@ -1164,6 +1164,12 @@ def import_module_from_directory(module_path=None, module_name=None, always_remo
 #===========================================================================
 # text related tools
 #---------------------------------------------------------------------------
+def leading_whitespace(text:str) -> str:
+	"""Return leading whitespace of <text>, possibly ''.
+	"""
+	return text[:-len(text.lstrip())]
+
+#---------------------------------------------------------------------------
 def empty_str(text:str) -> bool:
 	"""Check "text" for emptiness.
 

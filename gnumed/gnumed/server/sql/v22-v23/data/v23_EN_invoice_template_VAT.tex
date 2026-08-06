@@ -1,5 +1,5 @@
 %------------------------------------------------------------------
-% generic letter template based on scrlttr2
+% invoice with VAT template based on scrlttr2
 %
 % Author: Karsten Hilbert
 % Author: karsten.hilbert@gmx.net
@@ -8,6 +8,10 @@
 % requires pdflatex to be run with -recorder option
 %------------------------------------------------------------------
 %
+$2<ph_cfg::argumentsdivider//|--2--|//%% <%(name)s> set to [%(value)s]::>2$
+$3<ph_cfg::argumentsdivider//|--3--|//%% <%(name)s> set to [%(value)s]::>3$
+$4<ph_cfg::argumentsdivider//|--4--|//%% <%(name)s> set to [%(value)s]::>4$
+$5<ph_cfg::argumentsdivider//|--5--|//%% <%(name)s> set to [%(value)s]::>5$
 % %% $m[%_if_dbg==$1<if_debugging:://%::>1$]m$
 %
 % documentclass with options for *all* packages:
@@ -93,29 +97,36 @@ $m[%_if_dbg]m$\renewcommand*\ShowFrameColor{\color{red}}		% configure showframe
 
 
 % GNUmed macros
+%
+% set bill if not set (for debugging outside the UI)
+% %% $m[InvoiceID==$1<bill::%(invoice_id)s::>1$]m$
+%
+% Patient:
 % %% $m[PtFirstLast==$1<name::%(firstnames)s %(lastnames)s::>1$]m$
 % %% $m[PtFirstLAST==$1<firstname::::>1$ $1<lastname::::1>1$\textsc{$1<lastname::::2-99>1$}]m$
-% %% $m[PtTitle==$2<if_not_empty::$1<title::::>1$//%s //::>2$]m$
+% %% $m[PtTitle==$2<if_not_empty::$1<title::::>1$|--2--|%s |--2--|::>2$]m$
 % %% $m[PtDOB==$1<date_of_birth::%d.%m.%Y::>1$]m$
 % %% $m[PtAdrStrH==$1<adr_street::home::>1$]m$
 % %% $m[PtAdrZipH==$1<adr_postcode::home::>1$]m$
 % %% $m[PtAdrLocH==$1<adr_location::home::>1$]m$
 % %% $m[PtAdrNumH==$1<adr_number::home::>1$]m$
-% %% $m[Pt4Header==$2<if_not_empty::$1<title::::>1$//%s //::>2$$1<lastname::::1>1$\textsc{$1<lastname::::2-99>1$}, $1<firstname::::>1$ ($1<date_of_birth::%d.%B %Y::>1$)]m$
-% %% $m[Pt4Subj==Patient: $m[PtTitle]m$$m[PtFirstLAST]m$ (geb $m[PtDOB]m$)$2<if_not_empty::$m[PtAdrStrH]m$//\\//::>2$]m$
-% %% $m[PtAdr4Subj==$2<if_not_empty::$m[PtAdrStrH]m$//Adresse: $m[PtAdrStrH]m$ $m[PtAdrNumH]m$, $m[PtAdrZipH]m$ $m[PtAdrLocH]m$//%% no address available::>2$]m$
+% %% $m[Pt4Header==$2<if_not_empty::$1<title::::>1$|--2--|%s |--2--|::>2$$1<lastname::::1>1$\textsc{$1<lastname::::2-99>1$}, $1<firstname::::>1$ ($1<date_of_birth::%d.%B %Y::>1$)]m$
+% %% $m[Pt4Subj==Patient: $m[PtTitle]m$$m[PtFirstLAST]m$ (geb $m[PtDOB]m$)$2<if_not_empty::$m[PtAdrStrH]m$|--2--|\\|--2--|::>2$]m$
+% %% $m[PtAdr4Subj==$2<if_not_empty::$m[PtAdrStrH]m$|--2--|Adresse: $m[PtAdrStrH]m$ $m[PtAdrNumH]m$, $m[PtAdrZipH]m$ $m[PtAdrLocH]m$|--2--|% no address available::>2$]m$
 % %% $m[PtMcfQR==$1<patient_mcf::fmt=qr//tmpl=%s::>1$]m$
 %
 % %% $m[GmFormTmpl==$1<form_name_long::::>1$, $1<form_version::::>1$ [$1<form_version_internal::::>1$, $1<form_last_modified::::>1$]]m$
 %
+% Provider:
 % %% $m[Prov==$1<current_provider::::>1$]m$
-% %% $m[ProvTitle==$2<if_not_empty::$1<current_provider_name::%(title)s::>1$//%s //::>2$]m$
+% %% $m[ProvTitle==$2<if_not_empty::$1<current_provider_name::%(title)s::>1$|--2--|%s |--2--|::>2$]m$
 % %% $m[ProvTitleFirstLast==$m[ProvTitle]m$$1<current_provider_name::%(firstnames)s %(lastnames)s::>1$]m$
 % %% $m[ProvFA50==$1<current_provider_external_id::Fachgebiet//Ärztekammer::50>1$]m$
 % %% $m[ProvFirstLast==$1<current_provider_name::%(firstnames)s %(lastnames)s::>1$]m$
 % %% $m[ProvFLast==$1<current_provider_name::%(firstnames)s::1>1$$1<current_provider_name::%(lastnames)s::>1$]m$
 % %% $m[ProvFL==$1<current_provider_name::%(firstnames)s::1>1$.$1<current_provider_name::%(lastnames)s::1>1$]m$
 %
+% Praxis:
 % %% $m[PrxBrPrx==$1<praxis::%(branch)s, %(praxis)s::>1$]m$
 % %% $m[PrxMcfQR==$1<praxis_mcf::fmt=qr//tmpl=%s::>1$]m$
 % %% $m[PrxCountry==$1<praxis_address::%(country)s::>1$]m$
@@ -127,7 +138,7 @@ $m[%_if_dbg]m$\renewcommand*\ShowFrameColor{\color{red}}		% configure showframe
 % %% $m[PrxStreetU==$2<url_escape::$1<praxis_address::%(street)s::>1$::>2$]m$
 % %% $m[PrxNumber==$1<praxis_address::%(number)s::>1$]m$
 % %% $m[PrxNumberU==$2<url_escape::$1<praxis_address::%(number)s::>1$::>2$]m$
-% %% $m[PrxSubunit==$2<if_not_empty::$1<praxis_address::%(subunit)s::>1$// (%s)//::>2$]m$
+% %% $m[PrxSubunit==$2<if_not_empty::$1<praxis_address::%(subunit)s::>1$|--2--| (%s)|--2--|::>2$]m$
 % %% $m[PrxAdrURL==http://nominatim.openstreetmap.org/search/$m[PrxCountryU]m$/$m[PrxUrbU]m$/$m[PrxStreetU]m$/$m[PrxNumberU]m$?limit=3]m$
 % %% $m[PrxAdrHREF==\href{$m[PrxAdrURL]m$}{$m[PrxStreet]m$ $m[PrxNumber]m$$m[PrxSubunit]m$, $m[PrxZip]m$ $m[PrxUrb]m$}]m$
 % %% $m[PrxAdrQrHREF==\href{$m[PrxAdrURL]m$}{\includegraphics[width=30mm]{$m[PrxMcfQR]m$}}]m$
@@ -176,46 +187,39 @@ $m[%_if_dbg]m$\renewcommand*\ShowFrameColor{\color{red}}		% configure showframe
 
 
 % - sender details
-\setkomavar{fromname}{$m[ProvTitleFirstLast]m$$2<if_not_empty::$m[ProvFA50]m$//, FA für %s//::>2$}
+\setkomavar{fromname}{$m[ProvTitleFirstLast]m$$2<if_not_empty::$m[ProvFA50]m$|--2--| (%s)|--2--|::>2$}
 \setkomavar{fromaddress}{%
 	\small
-		$3<ph_cfg::argumentsdivider//#3#//%% <%(name)s> set to [%(value)s]::>3$
-	$1<praxis::%(praxis)s, %(branch)s::120>1$$2<if_not_empty::$m[PrxStreet]m$//\\//::>2$
-	$3<if_not_empty::$m[PrxStreet]m$#3#$m[PrxAdrHREF]m$#3#%% no praxis address available::>3$
-		$3<ph_cfg::argumentsdivider//DEFAULT//%% <%(name)s> set to [%(value)s]::>3$
+	$1<praxis::%(praxis)s, %(branch)s::120>1$$2<if_not_empty::$m[PrxStreet]m$|--2--|\\|--2--|::>2$
+	$3<if_not_empty::$m[PrxStreet]m$|--3--|$m[PrxAdrHREF]m$|--3--|% no praxis address available::>3$
 }
 % %% $m[PrxLogoPngName==$1<data_snippet::praxis-logo//%s//image/png//.png::>1$]m$
-% %% $m[PrxLogoIncl==$1<data_snippet::praxis-logo//\includegraphics[width=20mm]{%s}//image/png//.png::250>1$]m$
-% %% $m[PrxLogoInclGfxOrHREF==$2<if_not_empty::$m[PrxCommW]m$//\href{http://%s}{$m[PrxLogoIncl]m$}//$m[PrxLogoIncl]m$::>2$]m$
+% %% $m[PrxLogoInclude==$1<data_snippet::praxis-logo//\includegraphics[width=20mm]{%s}//image/png//.png::250>1$]m$
+% %% $m[PrxLogoIncludeGfxOrHREF==$2<if_not_empty::$m[PrxCommW]m$|--2--|\href{http://%s}{$m[PrxLogoInclude]m$}|--2--|$m[PrxLogoInclude]m$::>2$]m$
 \setkomavar{fromlogo}{%
-		$3<ph_cfg::argumentsdivider//#3#//%% <%(name)s> set to [%(value)s]::>3$
-		$2<ph_cfg::argumentsdivider//#2#//%% <%(name)s> set to [%(value)s]::>2$
-	$3<if_not_empty::$m[PrxLogoPngName]m$#3#$m[PrxLogoInclGfxOrHREF]m$#3#$2<if_not_empty::$m[PrxIBAN]m$#2#$m[PrxScan2PayHREF]m$ %% no praxis logo available#2#% no praxis logo available::>2$::>3$
-		$2<ph_cfg::argumentsdivider//DEFAULT//%% <%(name)s> set to [%(value)s]::>2$
-		$3<ph_cfg::argumentsdivider//DEFAULT//%% <%(name)s> set to [%(value)s]::>3$
+	$3<if_not_empty::$m[PrxLogoPngName]m$|--3--|$m[PrxLogoIncludeGfxOrHREF]m$|--3--|$2<if_not_empty::$m[PrxIBAN]m$|--2--|$m[PrxScan2PayHREF]m$ % no praxis logo available|--2--|% no praxis logo available::>2$::>3$%
 }
 % explicit backaddress, not calculated from <from*> values
-\setkomavar{backaddress}{$m[ProvFLast]m$\\$1<praxis_address::%(street)s %(number)s\\%(postcode)s %(urb)s::60>1$}
+\setkomavar{backaddress}{%
+	$m[ProvFLast]m$%
+	$2<if_not_empty::$m[PrxStreet]m$|--2--| \\ $1<praxis_address::%(street)s %(number)s\\%(postcode)s %(urb)s::60>1$%|--2--|% no praxis address available::>2$
+}
+
+
+% %% $m[BillScan2PayQR==$1<bill_scan2pay::fmt=qr::>1$]m$
 \setkomavar{location}{%
 	\begin{tabular}[t]{cc}%
-		Praxis & scan2pay%
-		\\
-	$3<ph_cfg::argumentsdivider//#3#//%% <%(name)s> set to [%(value)s]::>3$
-	$2<ph_cfg::argumentsdivider//#2#//%% <%(name)s> set to [%(value)s]::>2$
-		% Praxis
-		$3<if_not_empty::$m[PrxStreet]m$#3#$m[PrxAdrQrHREF]m$#3#\includegraphics[width=30mm]{$m[PrxMcfQR]m$}::>3$%
-			& %
-		% scan2pay
-		$2<if_not_empty::$m[PrxIBAN]m$#2#$m[PrxScan2PayHREF]m$#2# {}::>2$%
-		\\
-%		\includegraphics[width=30mm]{$m[PtMcfQR]m$} & $3<if_not_empty::$m[PrxStreet]m$#3#$m[PrxAdrQrHREF]m$#3#\includegraphics[width=30mm]{$m[PrxMcfQR]m$} %% no praxis address available::>3$
-%		\includegraphics[width=30mm]{$m[PtMcfQR]m$} & $3<if_not_empty::$m[PrxStreet]m$#3#$m[PrxAdrQrHREF]m$#3#\includegraphics[width=30mm]{$m[PrxMcfQR]m$} %% no praxis address available::>3$
-	$2<ph_cfg::argumentsdivider//DEFAULT//%% <%(name)s> set to [%(value)s]::>2$
-	$3<ph_cfg::argumentsdivider//DEFAULT//%% <%(name)s> set to [%(value)s]::>3$
+			Praxis & scan2pay%
+		\\	% next line
+			% cell "Praxis":
+			$3<if_not_empty::$m[PrxStreet]m$|--3--|$m[PrxAdrQrHREF]m$|--3--|\includegraphics[width=30mm]{$m[PrxMcfQR]m$}::>3$%
+				& %
+			% cell "scan2pay":
+			$2<if_not_empty::$m[BillScan2PayQR]m$|--2--|\includegraphics[width=30mm]{%s}|--2--|$3<if_not_empty::$m[PrxIBAN]m$|--3--|$m[PrxScan2PayHREF]m$|--3--| {} ::>3$::>2$%
+		\\	% next line
 	\end{tabular}%
 }
-\setkomavar{backaddress}{$<current_provider::::>$\\$<praxis_address::%(street)s %(number)s\\%(postcode)s %(urb)s::60>$}
-\setkomavar{invoice}{$<bill::%(invoice_id)s::>$}
+\setkomavar{invoice}{$m[InvoiceID]m$}
 \setkomavar{title}{Invoice}
 % not needed:
 %\setkomavar{fromurl}{}
@@ -226,41 +230,38 @@ $m[%_if_dbg]m$\renewcommand*\ShowFrameColor{\color{red}}		% configure showframe
 
 
 % - reference line
-\setkomavar{myref}{$2<free_text::"Our reference" (z.B. "$m[ProvFL]m$" für $m[ProvFirstLast]m$)//$m[ProvFL]m$::40>2$}
+\setkomavar{myref}{$2<free_text::"Our reference" (eg "$m[ProvFL]m$" for $m[ProvFirstLast]m$)|--2--|$m[ProvFL]m$::40>2$}
 %\setkomavar{yourref}{$2<free_text::"Your reference"::40>2$}
 %\setkomavar{yourmail}{$2<free_text::"Your communications at"::20>2$}
 \setkomavar{date}{$1<today::%d.%B %Y::50>1$}
 \setkomavar{place}{$1<praxis_address::%(urb)s::120>1$}
 
-%\setkomavar{frombank}{\footnotesize Bank Details: Starship Trust\\Acc. Num. 000\,00\,00\,000\\Bank code 000\,000\,00\\IBAN xxxxxxxxxxxxxxxx}
 \setkomavar{frombank}{%
 	\footnotesize Bank Details: {$1<praxis_id::Bankname//Bank//%(value)s::60>1$}\\%
 	BIC $1<praxis_id::BIC//Bank//%(value)s::30>1$\\%
 	IBAN $m[PrxIBAN]m$%
-%	Acc. Num. 000\,00\,00\,000\\%
-%	Bank code 000\,000\,00\\%
-%	IBAN xxxxxxxxxxxxxxxx%
 }
 
 
 % - Subject, namely patient data
-% %% $m[Subject==$2<free_text::Betreff (Patientenstammdaten werden hinzugefügt)::120>2$]m$
+% %% $m[Subject==$2<free_text::Subject (patient identifying data is added automatically)::120>2$]m$
 \setkomavar{subject}[]{%
-	$3<if_not_empty::$m[Subject]m$//%s\\//%% no additional Subject by user::>3$
+	$3<if_not_empty::$m[Subject]m$|--3--|%s\\|--3--|%% no additional Subject by user::>3$
 	$m[Pt4Subj]m$
 	$m[PtAdr4Subj]m$
 }
 
 
 % - signature
+% %% $m[Waiver==(Signer(s) can not be held liable for unsigned amendments.)]m$
+% problem: may contain spaces which is no good for filenames
+% %% $m[SigKwd==autograph-$1<current_provider_lastnames::::>1$_$1<current_provider_firstnames::::>1$]m$
 \setkomavar{signature}{%
-		$3<ph_cfg::argumentsdivider//#3#//%% <%(name)s> set to [%(value)s]::>3$
-	$3<if_not_empty::$2<data_snippet::autograph-$1<current_provider_lastnames::::>1$_$1<current_provider_firstnames::::>1$//\includegraphics[width=30mm]{%s}//image/png//.png::250>2$#3#%s\\#3#%% no signature file available::>3$
-		$3<ph_cfg::argumentsdivider//DEFAULT//%% <%(name)s> set to [%(value)s]::>3$
-	\rule{\widthof{\tiny{}(Der Unterzeichner haftet nicht für unsignierte Änderungen des Inhalts.)}}{.1pt}\\
+	$3<if_not_empty::$2<data_snippet::$m[SigKwd]m$|--2--|\includegraphics[width=30mm]{%s}//image/png//.png::250>2$|--3--|%s\\|--3--|%% no signature file available::>3$
+	\rule{\widthof{\tiny{}$m[Waiver]m$}}{.1pt}\\
 	$m[ProvTitleFirstLast]m$\\
-	$2<if_not_empty::$m[ProvFA50]m$//FA für %s\\//%% no speciality available::>2$
-	{\tiny{}(Der Unterzeichner haftet nicht für unsignierte Änderungen des Inhalts.)}
+	$2<if_not_empty::$m[ProvFA50]m$|--2--| (%s)\\|--2--|%% no speciality available::>2$
+	{\tiny{}$m[Waiver]m$}%
 }
 \renewcommand*{\raggedsignature}{\raggedright}
 \makeatletter
@@ -285,14 +286,12 @@ $m[%_if_dbg]m$\renewcommand*\ShowFrameColor{\color{red}}		% configure showframe
 		\begin{tabular}[t]{ll}%
 			\Telefon{}       & $1<praxis_comm::workphone::60>1$\\
 			\FAX{}           & $1<praxis_comm::fax::60>1$\\
-				$2<ph_cfg::argumentsdivider//#2#//%% <%(name)s> set to [%(value)s]::>2$
-			\Email{}         & $2<if_not_empty::$m[PrxCommE60]m$#2#\href{mailto:$m[PrxCommE60]m$}{$m[PrxCommE60]m$}\\#2#\\ %% no praxis email available::>2$
-			\ComputerMouse{} & $2<if_not_empty::$m[PrxCommW60]m$#2#$m[PrxCommW60HREF]m$#2#%% no praxis web address available::>2$
-				$2<ph_cfg::argumentsdivider//DEFAULT//%% <%(name)s> set to [%(value)s]::>2$
+			\Email{}         & $2<if_not_empty::$m[PrxCommE60]m$|--2--|\href{mailto:$m[PrxCommE60]m$}{$m[PrxCommE60]m$}\\|--2--|\\ % no praxis email available::>2$
+			\ComputerMouse{} & $2<if_not_empty::$m[PrxCommW60]m$|--2--|$m[PrxCommW60HREF]m$|--2--|% no praxis web address available::>2$
 		\end{tabular}%
 		\hfill
 		\begin{tabular}[t]{ll}%
-			\multicolumn{2}{l}{$2<if_not_empty::$m[ProvFA50]m$//FA für %s//::>2$}\\
+			Speciality & $2<if_not_empty::$m[ProvFA50]m$|--2--|%s|--2--|{}::>2$\\
 			BSNR       & $1<praxis_id::KV-BSNR//KV//%(value)s::25>1$\\
 			LANR       & $1<current_provider_external_id::KV-LANR//KV::25>1$\\
 			\multicolumn{2}{l}{GNUmed $1<client_version::::>1$ (\href{https://www.gnumed.org}{www.gnumed.org})}
@@ -319,27 +318,35 @@ $m[%_if_dbg]m$\renewcommand*\ShowFrameColor{\color{red}}		% configure showframe
 
 %------------------------------------------------------------------
 % start letter by generating receiver data
+%
+% %% $m[RxerName==$2<free_text::Please enter the name of the invoice recipient!|--2--|$m[PtFirstLast]m$::>2$]m$
+%
+% %% $m[BillHasAdr==$1<bill_adr_street::::>1$]m$
+% %% $m[PatHasBillingAdr==$1<bill_adr_street::::>1$]m$
+%
+% %%   $m[AdrBillOrBillingStreet==$2<if_not_empty::$m[BillHasAdr]m$>|--2--|$3<bill_adr_street::::>3$|--2--|$3<adr_street::billing::>3$::>2$]m$
+% %%               $m[RxerStreet==$4<if_not_empty::$m[AdrBillOrBillingStreet]m$|--4--|$m[AdrBillOrBillingStreet]m$|--4--|$5<receiver_street::::>5$::>4$]m$
+%
+% %%       $m[AdrBillOrBillingNr==$2<if_not_empty::$m[BillHasAdr]m$>|--2--|$3<bill_adr_number::::>3$|--2--|$3<adr_number::billing::>3$::>2$]m$
+% %%                   $m[RxerNr==$4<if_not_empty::$m[AdrBillOrBillingNr]m$|--4--|$m[AdrBillOrBillingNr]m$|--4--|$5<receiver_number::::>5$::>4$]m$
+%
+% %%                $m[RxerSubNr==$4<if_not_empty::$m[BillHasAdr]m$|--4--|$3<bill_adr_subunit::::>3$|--4--|$5<if_not_empty::$m[PatHasBillingAdr]m$|--5--|$3<adr_subunit::billing::>3$|--5--|$6<receiver_subunit::::>6$::>5$::>4$]m$
+%
+% %%      $m[AdrBillOrBillingZip==$2<if_not_empty::$m[BillHasAdr]m$>|--2--|$3<bill_adr_postcode::::>3$|--2--|$3<adr_postcode::billing::>3$::>2$]m$
+% %%                  $m[RxerZip==$4<if_not_empty::$m[AdrBillOrBillingZip]m$|--4--|$m[AdrBillOrBillingZip]m$|--4--|$5<receiver_postcode::::>5$::>4$]m$
+%
+% %%      $m[AdrBillOrBillingLoc==$2<if_not_empty::$m[BillHasAdr]m$>|--2--|$3<bill_adr_location::::>3$|--2--|$3<adr_location::billing::>3$::>2$]m$
+% %%                  $m[RxerLoc==$4<if_not_empty::$m[AdrBillOrBillingLoc]m$|--4--|$m[AdrBillOrBillingLoc]m$|--4--|$5<receiver_location::::>5$::>4$]m$
+%
+% %%  $m[AdrBillOrBillingCountry==$2<if_not_empty::$m[BillHasAdr]m$>|--2--|$3<bill_adr_country::::>3$|--2--|$3<adr_country::billing::>3$::>2$]m$
+% %%              $m[RxerCountry==$4<if_not_empty::$m[AdrBillOrBillingCountry]m$|--4--|$m[AdrBillOrBillingCountry]m$|--4--|$5<receiver_country::::>5$::>4$]m$
 
-% %% $m[HasBillingAdr==$1<adr_street::billing::>1$]m$
-$2<ph_cfg::argumentsdivider//|--|//%% <%(name)s> set to [%(value)s]::>2$
-% %%    $m[RxerName==$2<if_not_empty::$m[HasBillingAdr]m$|--|$3<free_text::Please enter the name of the invoice recipient!::>3$|--|$3<receiver_name::::>3$::>2$]m$
-% %%  $m[RxerStreet==$2<if_not_empty::$m[HasBillingAdr]m$|--|$3<adr_street::billing::>3$|--|$3<receiver_street::::>3$::>2$]m$
-% %%      $m[RxerNr==$2<if_not_empty::$m[HasBillingAdr]m$|--|$3<adr_number::billing::>3$|--|$3<receiver_number::::>3$::>2$]m$
-% %%   $m[RxerSubNr==$2<if_not_empty::$m[HasBillingAdr]m$|--|$3<adr_subunit::billing::>3$|--|$3<receiver_subunit::::>3$::>2$]m$
-% %%     $m[RxerZip==$2<if_not_empty::$m[HasBillingAdr]m$|--|$3<adr_postcode::billing::>3$|--|$3<receiver_postcode::::>3$::>2$]m$
-% %%     $m[RxerLoc==$2<if_not_empty::$m[HasBillingAdr]m$|--|$3<adr_location::billing::>3$|--|$3<receiver_location::::>3$::>2$]m$
-% %% $m[RxerCountry==$2<if_not_empty::$m[HasBillingAdr]m$|--|$3<adr_country::billing::>3$|--|$3<receiver_country::::>3$::>2$]m$
-$2<ph_cfg::argumentsdivider//DEFAULT//%% <%(name)s> set to [%(value)s]::>2$
-
-
-$2<ph_cfg::argumentsdivider//|--|//%% <%(name)s> set to [%(value)s]::>2$
 \begin{letter}{%
 	$m[RxerName]m$\\
 	$m[RxerStreet]m$\ $m[RxerNr]m$\ $m[RxerSubNr]m$\\
 	$m[RxerZip]m$\ $m[RxerLoc]m$\\
 	$m[RxerCountry]m$
 }
-$2<ph_cfg::argumentsdivider//DEFAULT//%% <%(name)s> set to [%(value)s]::>2$
 
 % debugging
 $m[%_if_dbg]m$\papergraduate											% show coordinate system on first page
@@ -347,11 +354,9 @@ $m[%_if_dbg]m$\afterpage{\AddToShipoutPicture*{\ShowFramePicture}}		% show "norm
 
 
 % define opening (Anrede)
-$2<ph_cfg::argumentsdivider//|--|//%% <%(name)s> set to [%(value)s]::>2$
 \opening{%
-	$4<free_text::Salutation, eg "Dear $m[RxerName]m$,"//Dear $m[RxerName]m$,::140>4$%
+	$4<free_text::Salutation, eg "Dear $m[RxerName]m$,"|--4--|Dear $m[RxerName]m$,::140>4$%
 }
-$2<ph_cfg::argumentsdivider//DEFAULT//%% <%(name)s> set to [%(value)s]::>2$
 
 % the actual content
 I hereby take the liberty of invoicing the services provided for \emph{$m[PtFirstLAST]m$}, detailed here below:
@@ -361,7 +366,7 @@ I hereby take the liberty of invoicing the services provided for \emph{$m[PtFirs
 		\toprule
 		Date & Item & Description & Qty./Factor & Amount ($<bill::%(currency)s::>$) \tabularnewline
 		\toprule
-		$<bill_item:: %(date_to_bill)s & %(billable_code)s & {\footnotesize %(billable_description)s, %(item_detail)s } & %(unit_count)s / %(amount_multiplier)s & %(total_amount)s \tabularnewline::>$
+		$<bill_item::%(date_to_bill)s & %(billable_code)s & {\footnotesize %(billable_description)s, %(item_detail)s } & %(unit_count)s / %(amount_multiplier)s & %(total_amount)s \tabularnewline//%Y %b %d::>$
 		\midrule
 		& & Total (net) & & $<bill::%(total_amount)s::>$ \tabularnewline
 		& & $<bill::%(percent_vat)s::>$\% VAT & & $<bill::%(total_vat)s::>$ \tabularnewline
@@ -376,7 +381,7 @@ I hereby take the liberty of invoicing the services provided for \emph{$m[PtFirs
 % define closing of letter (Grußformel)
 % multiple lines with \\, no empty lines
 \closing{%
-	$2<free_text::Closing, eg. "Best regards,"//Best regards,::140>2$%
+	$2<free_text::Closing, eg. "Best regards,"|--2--|Best regards,::140>2$%
 }
 
 % no Post Scriptum
@@ -384,7 +389,7 @@ I hereby take the liberty of invoicing the services provided for \emph{$m[PtFirs
 
 % Anlagen
 %\setkomavar*{enclseparator}[Anlage(n)]		% title for "enclosures" area
-%$3<if_not_empty::$2<free_text::Liste von Anlagen::300>2$//\encl{%s}//%\encl{}::>3$
+%$3<if_not_empty::$2<free_text::Liste von Anlagen::300>2$|--3--|\encl{%s}|--3--|%\encl{}::>3$
 
 % no Carbon Copies
 %\setkomavar*{ccseparator}[Verteiler]

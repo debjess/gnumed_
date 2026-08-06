@@ -761,7 +761,7 @@ class cLaTeXForm(cFormEngine):
 		output_fname = input_fname
 		for current_pass in range(1,6):
 			_log.debug('substitution pass #%s', current_pass)
-			output_fname = os.path.join(path, '%s.ph-repl.%s.tex' % (gmTools.fname_stem(fname), current_pass))
+			output_fname = os.path.join(path, '%s.ph-sub%s.tex' % (gmTools.fname_stem(fname), current_pass))
 			self.__substitute_placeholders (
 				iteration = current_pass,
 				input_filename = input_fname,
@@ -820,7 +820,7 @@ class cLaTeXForm(cFormEngine):
 		while True:
 			if iteration > 5:
 				break
-			output_filename = os.path.join(path, '%s.m-exp.%s.tex' % (gmTools.fname_stem(fname), iteration))
+			output_filename = os.path.join(path, '%s.m-exp%s.tex' % (gmTools.fname_stem(fname), iteration))
 			any_macros_found = self.__expand_macro_use (
 				input_filename = prev_output_filename,
 				output_filename = output_filename,
@@ -861,9 +861,8 @@ class cLaTeXForm(cFormEngine):
 			if line.lstrip().startswith('%'):
 				output_file.write(line.replace(r'% %%', r'%% [m%s]' % iteration, 1))
 			else:
-				leading_whitespace = line[:-len(line.lstrip())]
 				output_file.write('%s%% [m%s] %s' % (
-					leading_whitespace,
+					gmTools.leading_whitespace(line),
 					iteration,
 					line.lstrip()
 				))
@@ -896,17 +895,11 @@ class cLaTeXForm(cFormEngine):
 				continue
 			# skip TeX-comment-only lines
 			if line.lstrip().startswith('%'):
-#				# but not "double-comment" lines, those may contain placeholders for setting macro values
-#				if not line.lstrip().startswith('% %%'):
-#					output_file.write(line)
-#					continue
-				# lines starting with '% %%' may contain placeholders inside macros but
-				# they have been expanded out into non-comment LaTeX code lines earlier,
-				# no need to replace them in macros,
-				# also, there may be macros defined which do not get used, eventually,
-				# in which case substitution is useless
-				output_file.write(line)
-				continue
+				# but not "double-comment" lines, as those may
+				# contain placeholders for setting macro values
+				if not line.lstrip().startswith('% %%'):
+					output_file.write(line)
+					continue
 
 			# 1) find placeholders in this line
 			placeholders_in_line = regex.findall(ph_regex, line, regex.IGNORECASE)
@@ -917,12 +910,14 @@ class cLaTeXForm(cFormEngine):
 			# 2) replace them
 			_log.debug(' %s placeholder(s) detected in line:', len(placeholders_in_line))
 			_log.debug(' >>>%s<<<', line.rstrip('\n'))
-			leading_whitespace = line[:-len(line.lstrip())]
-			output_file.write('%s%% [p%s] %s' % (
-				leading_whitespace,
-				iteration,
-				line.lstrip()
-			))
+			if line.lstrip().startswith('%'):
+				output_file.write(line.replace(r'% %%', r'%% [p%s]' % iteration, 1))
+			else:
+				output_file.write('%s%% [p%s] %s' % (
+					gmTools.leading_whitespace(line),
+					iteration,
+					line.lstrip()
+				))
 			for placeholder in placeholders_in_line:
 				if 'free_text' in placeholder:
 					# enable reStructuredText processing
@@ -1822,11 +1817,14 @@ if __name__ == '__main__':
 
 	#--------------------------------------------------------
 	def test_latex_form():
-		pat = gmPersonSearch.ask_for_patient()
-		if pat is None:
-			return
+#		pat = gmPersonSearch.ask_for_patient()
+#		if pat is None:
+#			return
 
-		gmPerson.set_active_patient(patient = pat)
+		from Gnumed.wxpython import gmGuiTest
+		gmGuiTest.setup_widget_test_env(patient = -1)
+
+#		gmPerson.set_active_patient(patient = pat)
 		gmStaff.gmCurrentProvider(provider = gmStaff.cStaff())
 		path = os.path.abspath(sys.argv[2])
 		form = cLaTeXForm(template_file = path)
@@ -1910,11 +1908,13 @@ if __name__ == '__main__':
 	#test_cFormTemplate()
 	#set_template_from_file()
 
+	test_latex_form()
+	sys.exit()
+
 	gmPG2.request_login_params(setup_pool = True)
 	if not gmPraxis.gmCurrentPraxisBranch.from_first_branch():
 		print('no praxis')
 	#generate_all_bmps()
-	test_latex_form()
 	#test_pdf_form()
 	#test_abiword_form()
 	#test_text_form()
