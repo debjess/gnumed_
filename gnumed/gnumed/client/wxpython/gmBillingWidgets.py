@@ -823,6 +823,9 @@ def manage_bills(parent=None, patient=None):
 					gmGuiHelpers.gm_show_error(error = msg, title = _('Displaying invoice'))
 				return success
 
+			if show_existing is None:
+				return True
+
 		# prepare invoicing
 		if not bill.set_missing_address_from_default():
 			gmGuiHelpers.warn (
