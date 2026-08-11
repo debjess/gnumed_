@@ -1044,10 +1044,10 @@ def create_org_comm_channel(comm_type=None, url=None, is_confidential=False, pk_
 			fk_type,
 			is_confidential
 		) VALUES (
-			%%(pk_owner)s,
-			%%(url)s,
-			dem.create_comm_type(%%(type)s),
-			%%(secret)s
+			%(pk_owner)s,
+			%(url)s,
+			dem.create_comm_type(%(type)s),
+			%(secret)s
 		)"""
 	else:
 		SQL = """INSERT INTO dem.lnk_org_unit2comm (
@@ -1056,10 +1056,10 @@ def create_org_comm_channel(comm_type=None, url=None, is_confidential=False, pk_
 			fk_type,
 			is_confidential
 		) VALUES (
-			%%(pk_owner)s,
-			%%(url)s,
-			%%(pk_type)s,
-			%%(secret)s
+			%(pk_owner)s,
+			%(url)s,
+			%(pk_type)s,
+			%(secret)s
 		)"""
 	queries = [{'sql': SQL, 'args': args}]
 	SQL = "SELECT * FROM dem.v_org_unit_comms WHERE pk_lnk_org_unit2comm = currval(pg_get_serial_sequence('dem.lnk_org_unit2comm', 'pk'))"
