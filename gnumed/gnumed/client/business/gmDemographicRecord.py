@@ -600,6 +600,8 @@ class cAddress(gmBusinessDBObject.cBusinessDBObject):
 
 		Specs:
 			https://nominatim.org/release-docs/develop/api/Search/
+
+			https://nominatim.openstreetmap.org/ui/search.html?street=dresdner+stra%C3%9Fe+1&city=leipzig&country=Deutschland&postalcode=04107
 		"""
 		args = []
 		if self['street']:
