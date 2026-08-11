@@ -191,7 +191,7 @@ $m[%_if_dbg]m$\renewcommand*\ShowFrameColor{\color{red}}		% configure showframe
 	$3<if_not_empty::$m[PrxStreet]m$|--3--|$m[PrxAdrHREF]m$%|--3--|% no praxis address available::>3$
 }
 % %% $m[PrxLogoPngName==$1<data_snippet::praxis-logo//%s//image/png//.png::>1$]m$
-% %% $m[PrxLogoInclude==$1<data_snippet::praxis-logo//\includegraphics[width=20mm]{%s}//image/png//.png::250>1$]m$
+% %% $m[PrxLogoInclude==$1<data_snippet::praxis-logo//\includegraphics[height=20mm]{%s}//image/png//.png::250>1$]m$
 % %% $m[PrxMcfQRInclude==\includegraphics[width=20mm]{$m[PrxMcfQR]m$}]m$
 % %% $m[PrxAdrUrlQrInclude==\includegraphics[width=20mm]{$m[PrxAdrUrlQr]m$}]m$
 % %% $m[PrxLogoOrQrOfMcfInclude==$4<if_not_empty::$m[PrxLogoPngName]m$|--4--|$m[PrxLogoInclude]m$|--4--|$m[PrxMcfQRInclude]m$::>4$]m$
