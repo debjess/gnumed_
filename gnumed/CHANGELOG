@@ -69,6 +69,7 @@ IMPROVED: billing: no longer allow removing items from a bill
 IMPROVED: EMR: list journal functionality
 IMPROVED: forms: lab results printout
 IMPROVED: forms: current medications list
+IMPROVED: forms: invoice templates [thanks María]
 
 FIX: CLI: --wxp= not needed anymore
 FIX: CLI: --ui= not needed anymore
