@@ -33,6 +33,7 @@ import pickle, zlib
 # 3rd party library imports
 # docutils
 du_core = None
+import urllib.parse
 
 # GNUmed libs
 if __name__ == '__main__':
@@ -1651,6 +1652,10 @@ def html_escape_string(text=None, replace_eol=False, keep_visual_eol=False):
 	return text
 
 #---------------------------------------------------------------------------
+def url_escape_string(url):
+	return urllib.parse.quote(url.encode('utf8'))
+
+#---------------------------------------------------------------------------
 def dict2json(obj):
 	return json.dumps(obj, default = json_serialize)
 
@@ -2798,10 +2803,18 @@ second line\n
 		print(csv_reader('no such file', dialect=csv.excel, encoding='utf-8'))
 
 	#-----------------------------------------------------------------------
+	def test_url_escape_string():
+		urls = [
+			'http//fritz 2.box/egn'
+		]
+		for url in urls:
+			print(url_escape_string(url))
+	#-----------------------------------------------------------------------
 	#test_xor()
 	#test_coalesce()
 	#test_capitalize()
-	test_csv()
+	#test_csv()
+	test_url_escape_string()
 	#test_import_module()
 	#test_mkdir()
 	#test_gmPaths()
