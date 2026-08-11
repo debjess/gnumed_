@@ -95,7 +95,7 @@ __known_variant_placeholders = {
 		target mime type: a mime type into which to convert the image, no conversion if not given
 		target extension: target file name extension, derived from target mime type if not given
 	""",
-	u'qrcode': u"""generate QR code file for a text snippet:
+	'qrcode': """generate QR code file for a text snippet:
 		returns: path to QR code png file
 		args: <text>//<template>
 			text: utf8 text, will always be encoded in 'binary' mode with utf8 as encoding
@@ -469,6 +469,11 @@ __known_variant_placeholders = {
 		select:			if this is present allow selection of the branch rather than using the current branch""",
 
 	'praxis_address': "args: <optional formatting template>",
+	'praxis_address_map_url': """returns nominatim OSM map url for address, if <street> exists
+		args: <format>//<raw_url>
+		format: fmt=qr|txt, default txt
+		raw_url: do not escape for target document format
+	""",
 	'praxis_comm': "args: type//<optional formatting template>",
 	'praxis_id': "args: <type of ID>//<issuer of ID>//<optional formatting template>",
 	'praxis_vcf': """returns path to VCF for current praxis branch
@@ -1767,13 +1772,47 @@ class gmPlaceholderHandler(gmBorg.cBorg):
 			if self.debug:
 				return _('no address recorded')
 			return ''
+
 		try:
 			return template % adr.fields_as_dict(escape_style = self.__esc_style)
+
 		except Exception:
 			_log.exception('error formatting address')
 			_log.error('template: %s', template)
-
 		return None
+
+	#--------------------------------------------------------
+	def _get_variant_praxis_address_map_url(self, data=''):
+
+		adr = gmPraxis.gmCurrentPraxisBranch().address
+		if adr is None:
+			if self.debug:
+				return _('no praxis address recorded')
+			return ''
+
+		kwds = {'fmt': 'txt'}
+		switch_defaults = {'raw_url': False}
+		options = self._parse_ph_options (
+			options_data = data,
+			kwd_defaults = kwds,
+			switch_defaults = switch_defaults
+		)
+		if options['fmt'] not in ['qr', 'txt']:
+			if self.debug:
+				return self._escape(_('praxis_address_map_url: invalid format (qr/txt)'))
+			return ''
+
+		url = adr.as_map_url
+		if options['fmt'] == 'txt':
+			if not options['raw_url']:
+				url = self._escape(url)
+			return url
+
+		qr_filename = gmTools.create_qrcode(text = url)
+		if qr_filename is None:
+			return self._escape('praxis_address_map_url-cannot_create_QR_code')
+
+		return qr_filename
 
 	#--------------------------------------------------------
 	def _get_variant_praxis_comm(self, data=None):
@@ -2454,6 +2493,8 @@ class gmPlaceholderHandler(gmBorg.cBorg):
 
 	#--------------------------------------------------------
 	def _get_variant_url_escape(self, data=None):
+		#return urllib.parse.quote(data.encode('utf8'))
+		# yes, must escape for LaTeX as well :/
 		return self._escape(urllib.parse.quote(data.encode('utf8')))
 
 	#--------------------------------------------------------
