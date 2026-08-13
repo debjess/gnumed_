@@ -202,7 +202,7 @@ class wxgIncomingPluginPnl(wx.Panel):
 		__szr_import_buttons.Add((20, 20), 1, wx.EXPAND, 0)
 
 		self._BTN_measurement = wx.Button(__szr_doc_properties.GetStaticBox(), wx.ID_ANY, _("+ &Measurement"))
-		self._BTN_measurement.SetToolTip(_("Open the 'Add measurement' dialog.\n\nUseful for adding measurement information from documents here in the incoming area (such as lab reports)."))
+		self._BTN_measurement.SetToolTip(_("Register a measurement for this patient.\n\nUseful for adding measurements from information within documents here in the incoming area (such as lab reports)."))
 		__szr_import_buttons.Add(self._BTN_measurement, 0, 0, 0)
 
 		self._PNL_previews = cFilePreviewPnl(self._main_splitter, wx.ID_ANY, style=wx.BORDER_NONE)
