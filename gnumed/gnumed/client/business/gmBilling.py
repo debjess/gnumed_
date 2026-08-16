@@ -768,7 +768,7 @@ def generate_scan2pay_string (
 															# (4) <purpose of transfer> - leer
 															# (35) <remittance info - struct> - only this XOR the next field - GNUmed: leer
 	$2<range_of::InvID=$<bill::%(invoice_id)s::>$/Date=$<today::%d.%B %Y::>$::140$>2$	# (140) <remittance info - text> "Client:Marie Louise La Lune" - "Rg Nr, date"
-	<beneficiary-to-payor info>								# (70)	"pay soon :-)" - optional - GNUmed nur wenn bytes verfügbar
+	<beneficiary-to-payor info>								# (70)	"pay soon :-)" - optional - GNUmed: nur wenn bytes verfügbar
 	--------------------------------
 	total: 331 bytes (not chars ! - cave UTF8)
 	EOL: LF or CRLF
@@ -803,16 +803,19 @@ def get_scan2pay_data(branch, bill, provider=None, comment=None):
 	assert (bill is not None), '<bill> must not be <None>'
 
 	IBANs = branch.get_external_ids(id_type = 'IBAN', issuer = 'Bank')
-	if len(IBANs) == 0:
+	if IBANs:
+		IBAN = IBANs[0]['value']
+	else:
 		_log.debug('no IBAN found, cannot create scan2pay data')
 		return None
 
-	IBAN = IBANs[0]['value']
-	beneficiary = gmTools.coalesce (
-		value2test = provider,
-		return_instead = branch['praxis'][:70],
-		template4value = '%%(lastnames)s, %s' % branch['praxis']
-	)
+	beneficiary = branch.get_external_ids(id_type = 'account holder', issuer = 'Bank')
+	if not beneficiary:
+		beneficiary = gmTools.coalesce (
+			value2test = provider,
+			return_instead = branch['praxis'][:70],
+			template4value = '%%(lastnames)s, %s' % branch['praxis']
+		)
 	BICs = branch.get_external_ids(id_type = 'BIC', issuer = 'Bank')
 	if BICs:
 		BIC = BICs[0]['value']
@@ -864,11 +867,13 @@ def __get_scan2pay_data(branch, bill, provider=None, comment=None):
 		_log.debug('no IBAN found, cannot create scan2pay data')
 		return None
 	data['IBAN'] = IBANs[0]['value'][:34]
-	data['beneficiary'] = gmTools.coalesce (
-		value2test = provider,
-		return_instead = branch['praxis'][:70],
-		template4value = '%%(lastnames)s, %s' % branch['praxis']
-	)[:70]
+	data['beneficiary'] = branch.get_external_ids(id_type = 'account holder', issuer = 'Bank')[:70]
+	if not data['beneficiary']:
+		data['beneficiary'] = gmTools.coalesce (
+			value2test = provider,
+			return_instead = branch['praxis'][:70],
+			template4value = '%%(lastnames)s, %s' % branch['praxis']
+		)[:70]
 	BICs = branch.get_external_ids(id_type = 'BIC', issuer = 'Bank')
 	if len(BICs) == 0:
 		data['BIC'] = ''

@@ -697,8 +697,7 @@ def create_invoice_from_bill(parent=None, bill:gmBilling.cBill=None, print_it:bo
 				warning = ('Cannot save invoice into document archive.')
 			)
 	if not print_it:
-		for part in doc.parts:
-			part.display_via_mime()
+		gmMimeLib.call_viewer_on_file(pdf_name)
 		return True
 
 	_cfg = gmCfgINI.gmCfgData()

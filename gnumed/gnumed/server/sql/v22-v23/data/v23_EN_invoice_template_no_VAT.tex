@@ -143,7 +143,12 @@ $m[%_if_dbg]m$\renewcommand*\ShowFrameColor{\color{red}}		% configure showframe
 % %% $m[PrxCommW60==$1<praxis_comm::web::60>1$]m$
 % %% $m[PrxCommW60HREF==\href{http://%s}{$m[PrxCommW60]m$}]m$
 % %% $m[PrxCommE60==$1<praxis_comm::email::60>1$]m$
+% %% $m[PrxAcctHolder==$1<praxis_id::account holder//Bank//%(value)s::>1$]m$
+% %% $m[PrxBankName==$1<praxis_id::bank name//Bank//%(value)s::60>1$]m$
 % %% $m[PrxIBAN==$1<praxis_id::IBAN//Bank//%(value)s::30>1$]m$
+% %% $m[PrxBIC==$1<praxis_id::BIC//Bank//%(value)s::30>1$]m$
+% https://duckduckgo.com/?q=BIC+DEUTDEFFXXX&ia=web
+% %% $m[PrxBIChref==$2<if_not_empty::$m[PrxBIC]m$|--2--|\href{https://duckduckgo.com/?q=BIC+%s&ia=web}{$m[PrxBIC]m$}|--2--|{}::>2$]m$
 % %% $m[PrxScan2PayHREF==\href{https://www.scan2pay.info}{\includegraphics[width=15mm]{$1<praxis_scan2pay::fmt=qr::>1$}}]m$
 %
 %- %% $m[==]m$
@@ -226,7 +231,7 @@ $m[%_if_dbg]m$\renewcommand*\ShowFrameColor{\color{red}}		% configure showframe
 			% QR code containing scan2pay for bill or praxis
 			$2<if_not_empty::$m[BillScan2PayQR]m$|--2--|\includegraphics[width=30mm]{%s}|--2--|$3<if_not_empty::$m[PrxIBAN]m$|--3--|$m[PrxScan2PayHREF]m$|--3--|::>3$::>2$%
 		} \\
-		{ Patient } & { Bill }
+		{ Patient } & { Payment }
 	\end{tabular}%
 }
 \setkomavar{invoice}{$m[InvoiceID]m$}
@@ -247,8 +252,9 @@ $m[%_if_dbg]m$\renewcommand*\ShowFrameColor{\color{red}}		% configure showframe
 \setkomavar{place}{$1<praxis_address::%(urb)s::120>1$}
 
 \setkomavar{frombank}{%
-	\footnotesize Bank Details: {$1<praxis_id::Bankname//Bank//%(value)s::60>1$}\\%
-	BIC $1<praxis_id::BIC//Bank//%(value)s::30>1$\\%
+	\footnotesize %
+	Bank Details: {$m[PrxBankName]m$}\\%
+	BIC {$m[PrxBIChref]m$}\\%
 	IBAN $m[PrxIBAN]m$%
 }
 
@@ -304,15 +310,21 @@ $m[%_if_dbg]m$\renewcommand*\ShowFrameColor{\color{red}}		% configure showframe
 			Speciality & $2<if_not_empty::$m[ProvFA50]m$|--2--|%s|--2--|{}::>2$\\
 			BSNR       & $1<praxis_id::KV-BSNR//KV//%(value)s::25>1$\\
 			LANR       & $1<current_provider_external_id::KV-LANR//KV::25>1$\\
-			\multicolumn{2}{l}{GNUmed $1<client_version::::>1$ (\href{https://www.gnumed.org}{www.gnumed.org})}
+			{}         & {}
 		\end{tabular}%
 		\hfill
 		\begin{tabular}[t]{ll}%
-			\multicolumn{2}{l}{$1<praxis_id::Bankname//Bank//%(value)s::60>1$}\\
-			IBAN       & $m[PrxIBAN]m$\\
-			BIC        & $1<praxis_id::BIC//Bank//%(value)s::30>1$\\
-			\multicolumn{2}{l}{Vorlage $1<form_name_long::::60>1$ v$1<form_version::::20>1$}
+			\multicolumn{2}{l}{$m[PrxBankName]m$}\\
+			BIC         & { $m[PrxBIChref]m$ }\\
+			IBAN        & $m[PrxIBAN]m$\\
+			Acct Holder & $m[PrxAcctHolder]m$
 		\end{tabular}%
+	}\newline
+	{%
+		\tiny{}%
+		GNUmed $1<client_version::::>1$ (\href{https://www.gnumed.de}{www.gnumed.de})%
+		\hfill{}%
+		Template $1<form_name_long::::60>1$ v$1<form_version::::20>1$%
 	}
 }
 
