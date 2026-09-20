@@ -419,10 +419,10 @@ def create_substance(substance=None, atc=None, link_obj=None):
 		'desc': substance.strip(),
 		'atc': atc
 	}
-	cmd = "SELECT pk FROM ref.substance WHERE lower(description) = lower(%(desc)s)"
-	rows = gmPG2.run_ro_queries(link_obj = link_obj, queries = [{'sql': cmd, 'args': args}])
-	if len(rows) == 0:
-		cmd = """
+	SQL = "SELECT pk FROM ref.substance WHERE lower(description) = lower(%(desc)s)"
+	rows = gmPG2.run_ro_query(link_obj = link_obj, sql = SQL, args = args)
+	if not rows:
+		SQL = """
 			INSERT INTO ref.substance (description, atc) VALUES (
 				%(desc)s,
 				coalesce (
@@ -430,13 +430,13 @@ def create_substance(substance=None, atc=None, link_obj=None):
 					(SELECT code FROM ref.atc WHERE term = %(desc)s LIMIT 1)
 				)
 			) RETURNING pk"""
-		rows = gmPG2.run_rw_queries(queries = [{'sql': cmd, 'args': args}], return_data = True, link_obj = link_obj)
+		rows = gmPG2.run_rw_query(sql = SQL, args = args, return_data = True, link_obj = link_obj)
 	if atc:
 		gmATC.propagate_atc(link_obj = link_obj, substance = substance.strip(), atc = atc)
 	return cSubstance(aPK_obj = rows[0]['pk'], link_obj = link_obj)
 
 #------------------------------------------------------------
-def create_substance_by_atc(substance=None, atc=None, link_obj=None):
+def create_substance_by_atc(substance:int=None, atc:int=None, link_obj=None, return_pk:bool=False) -> cSubstance|int:
 
 	if atc is None:
 		raise ValueError('<atc> must be supplied')
@@ -450,10 +450,10 @@ def create_substance_by_atc(substance=None, atc=None, link_obj=None):
 		'atc': atc
 	}
 	# in case the substance already exists: add ATC
-	cmd = "UPDATE ref.substance SET atc = %(atc)s WHERE lower(description) = lower(%(desc)s) AND atc IS NULL"
-	queries.append({'sql': cmd, 'args': args})
+	SQL = "UPDATE ref.substance SET atc = %(atc)s WHERE lower(description) = lower(%(desc)s) AND atc IS NULL"
+	queries.append({'sql': SQL, 'args': args})
 	# or else INSERT the substance
-	cmd = """
+	SQL = """
 		INSERT INTO ref.substance (description, atc)
 			SELECT
 				%(desc)s,
@@ -462,11 +462,13 @@ def create_substance_by_atc(substance=None, atc=None, link_obj=None):
 				SELECT 1 FROM ref.substance WHERE atc = %(atc)s
 			)
 		RETURNING pk"""
-	queries.append({'sql': cmd, 'args': args})
+	queries.append({'sql': SQL, 'args': args})
 	rows = gmPG2.run_rw_queries(link_obj = link_obj, queries = queries, return_data = True)
-	if len(rows) == 0:
-		cmd = "SELECT pk FROM ref.substance WHERE atc = %(atc)s LIMIT 1"
-		rows = gmPG2.run_ro_queries(link_obj = link_obj, queries = [{'sql': cmd, 'args': args}])
+	if not rows:
+		SQL = "SELECT pk FROM ref.substance WHERE atc = %(atc)s LIMIT 1"
+		rows = gmPG2.run_ro_query(link_obj = link_obj, sql = SQL, args = args)
+	if return_pk:
+		return rows[0]['pk']
 
 	return cSubstance(aPK_obj = rows[0]['pk'], link_obj = link_obj)
 
@@ -664,15 +666,16 @@ def create_substance_dose(link_obj=None, pk_substance=None, substance=None, atc=
 	return cSubstanceDose(aPK_obj = rows[0]['pk'], link_obj = link_obj)
 
 #------------------------------------------------------------
-def create_substance_dose_by_atc(link_obj=None, substance=None, atc=None, amount=None, unit=None, dose_unit=None):
-	subst = create_substance_by_atc (
+def create_substance_dose_by_atc(link_obj=None, substance=None, atc=None, amount=None, unit=None, dose_unit=None) -> cSubstanceDose:
+	pk_subst = create_substance_by_atc (
 		link_obj = link_obj,
 		substance = substance,
-		atc = atc
+		atc = atc,
+		return_pk = True
 	)
 	return create_substance_dose (
 		link_obj = link_obj,
-		pk_substance = subst['pk_substance'],
+		pk_substance = pk_subst,
 		amount = amount,
 		unit = unit,
 		dose_unit = dose_unit
@@ -1995,16 +1998,6 @@ def delete_drug_product(pk_drug_product:int=None) -> bool:
 	return True
 
 #============================================================
-#------------------------------------------------------------
-#------------------------------------------------------------
-#------------------------------------------------------------
-#------------------------------------------------------------
-#============================================================
-#------------------------------------------------------------
-#------------------------------------------------------------
-#------------------------------------------------------------
-#------------------------------------------------------------
-#============================================================
 # substance intakes
 #------------------------------------------------------------
 _SQL_get_substance_intake = "SELECT * FROM clin.v_intakes WHERE %s"
@@ -2072,7 +2065,7 @@ class cSubstanceIntake(gmBusinessDBObject.cBusinessDBObject):
 		)
 
 	#--------------------------------------------------------
-	def format(self, left_margin:int=0, date_format:str='%Y %b %d', single_line:bool=True, allergy:gmAllergy.cAllergy=None, include_tech_details:bool=True, include_instructions:bool=False, include_loincs:bool=False, terse:bool=False, eol='\n'):
+	def format(self, left_margin:int=0, date_format:str='%Y %b %d', single_line:bool=True, allergy:gmAllergy.cAllergy=None, include_tech_details:bool=False, include_instructions:bool=False, include_loincs:bool=False, terse:bool=False, eol='\n'):
 		# medication ?
 		if self._payload['use_type'] is None:
 			if single_line:
@@ -2199,7 +2192,7 @@ class cSubstanceIntake(gmBusinessDBObject.cBusinessDBObject):
 		return subst_prefix + ', '.join(parts_verbose)
 
 	#--------------------------------------------------------
-	def format_as_multiple_lines_abuse(self, left_margin=0, date_format='%Y %b %d', include_tech_details=True, eol='\n'):
+	def format_as_multiple_lines_abuse(self, left_margin=0, date_format='%Y %b %d', include_tech_details:bool=False, eol='\n'):
 		lines = []
 		lines.append(_('Misuse of: %s%s') % (
 			self._payload['substance'],
@@ -2635,7 +2628,6 @@ def substance_intake_exists(pk_identity:int=None, pk_substance:int=None, substan
 
 #------------------------------------------------------------
 def substance_intake_exists_by_atc(pk_identity=None, atc=None):
-
 	if (atc is None) or (pk_identity is None):
 		raise ValueError('atc and pk_identity cannot be None')
 
@@ -2645,9 +2637,10 @@ def substance_intake_exists_by_atc(pk_identity=None, atc=None):
 	}
 	where_parts = [
 		'pk_patient = %(pat)s',
-		'((atc_substance = %(atc)s) OR (atc_drug = %(atc)s))'
+		'atc_substance = %(atc)s'
+		#'((atc_substance = %(atc)s) OR (atc_drug = %(atc)s))'
 	]
-	cmd = """
+	SQL = """
 		SELECT EXISTS (
 			SELECT 1 FROM clin.v_intakes
 			WHERE
@@ -2655,8 +2648,7 @@ def substance_intake_exists_by_atc(pk_identity=None, atc=None):
 			LIMIT 1
 		)
 	""" % '\nAND\n'.join(where_parts)
-
-	rows = gmPG2.run_ro_queries(queries = [{'sql': cmd, 'args': args}])
+	rows = gmPG2.run_ro_query(sql = SQL, args = args)
 	return rows[0][0]
 
 #------------------------------------------------------------
@@ -3252,67 +3244,20 @@ def create_default_medication_history_episode(pk_health_issue=None, encounter=No
 	)
 
 #------------------------------------------------------------
-def get_tobacco():
-	nicotine = create_substance_dose_by_atc (
-		substance = _('nicotine'),
-		atc = gmATC.ATC_NICOTINE,
-		amount = 1,
-		unit = 'pack',
-		dose_unit = 'year'
-	)
-	tobacco = create_drug_product (
-		product_name = _('nicotine'),
-		preparation = _('tobacco'),
-		doses = [nicotine],
-		return_existing = True
-	)
-	tobacco['is_fake_product'] = True
-	tobacco.save()
-	return tobacco
+def ensure_nicotine_as_substance(return_pk:bool=True) -> cSubstance:
+	#amount = 1,
+	#unit = 'pack',
+	#dose_unit = 'year'
+	return create_substance_by_atc(substance = _('nicotine'), atc = gmATC.ATC_NICOTINE, return_pk = return_pk)
 
 #------------------------------------------------------------
-def get_alcohol():
-	ethanol = create_substance_dose_by_atc (
-		substance = _('ethanol'),
-		atc = gmATC.ATC_ETHANOL,
-		amount = 1,
-		unit = 'g',
-		dose_unit = 'ml'
-	)
-	drink = create_drug_product (
-		product_name = _('alcohol'),
-		preparation = _('liquid'),
-		doses = [ethanol],
-		return_existing = True
-	)
-	drink['is_fake_product'] = True
-	drink.save()
-	return drink
+def ensure_alcohol_as_substance(return_pk:bool=True) -> cSubstance:
+	#amount = 1,
+	#unit = 'g',
+	#dose_unit = 'ml'
+	return create_substance_by_atc(substance = _('ethanol'), atc = gmATC.ATC_ETHANOL, return_pk = return_pk)
 
 #------------------------------------------------------------
-def get_other_drug(name=None, pk_dose=None):
-	if pk_dose is None:
-		content = create_substance_dose (
-			substance = name,
-			amount = 1,
-			unit = _('unit'),
-			dose_unit = _('unit')
-		)
-	else:
-		content = {'pk_dose': pk_dose}		#cSubstanceDose(aPK_obj = pk_dose)
-	drug = create_drug_product (
-		product_name = name,
-		preparation = _('unit'),
-		doses = [content],
-		return_existing = True
-	)
-	drug['is_fake_product'] = True
-	drug.save()
-	return drug
-
-#------------------------------------------------------------
-#--------------------------------------------------------
-#--------------------------------------------------------
 #------------------------------------------------------------
 def format_units(unit:str=None, dose_unit:str=None, preparation:str=None, short:bool=True, none_str:str=None) -> str:
 	"""Format units for display.
@@ -3648,7 +3593,7 @@ if __name__ == "__main__":
 	#--------------------------------------------------------
 	def test_intake_lifecycle():
 		conn = gmPG2.get_connection(readonly = False)
-		start = gmDateTime.pydt_replace(gmDateTime.pydt_now_here(), year = 1965)
+		#start = gmDateTime.pydt_replace(gmDateTime.pydt_now_here(), year = 1965)
 		#end = gmDateTime.pydt_replace(start, second = min(start.second + 1, 59))
 		intake = create_substance_intake (
 			pk_encounter = 1,
@@ -3789,9 +3734,8 @@ if __name__ == "__main__":
 	#--------------------------------------------------------
 	#--------------------------------------------------------
 	def test_get_habit_drugs():
-		print(get_tobacco().format())
-		print(get_alcohol().format())
-		print(get_other_drug(name = 'LSD').format())
+		print(ensure_nicotine_as_substance(return_pk = False).format())
+		print(ensure_alcohol_as_substance(return_pk = False).format())
 
 	#--------------------------------------------------------
 	def test_generate_renal_insufficiency_urls():
@@ -3879,7 +3823,7 @@ if __name__ == "__main__":
 	##test_get_drugs()
 	#test_get_intakes()
 	#test_intake_formatting()
-	##test_get_habit_drugs()
+	#test_get_habit_drugs()
 	#test_can_format()
 	#test_format_substance_intake()
 	test_intake_lifecycle()

@@ -78,7 +78,7 @@ def manage_substance_intakes(parent=None, emr=None, include_inactive:bool=True):
 
 	#------------------------------------------------------------
 	def get_tooltip(intake=None):
-		return intake.format(single_line = False, include_tech_details = False)
+		return intake.format(single_line = False)
 
 	#------------------------------------------------------------
 	def refresh(lctrl):
@@ -316,7 +316,7 @@ class cSubstanceIntakeEAPnl(wxgSubstanceIntakeEAPnl.wxgSubstanceIntakeEAPnl, gmE
 			else:
 				msg_lines.append(_('EDC: %s') % edc.strftime('%Y %b %d'))
 		self._LBL_information.SetLabel('\n'.join(msg_lines))
-		self._LBL_information.SetToolTip('\n'.join(tt_lines))
+		self._LBL_info_tooltip.SetToolTip('\n'.join(tt_lines))
 		self.Layout()
 
 	#----------------------------------------------------------------

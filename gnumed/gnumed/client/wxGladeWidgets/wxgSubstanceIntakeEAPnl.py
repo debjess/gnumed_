@@ -32,8 +32,16 @@ class wxgSubstanceIntakeEAPnl(wx.ScrolledWindow):
 
 		__szr_main = wx.BoxSizer(wx.VERTICAL)
 
+		__szr_information = wx.BoxSizer(wx.HORIZONTAL)
+		__szr_main.Add(__szr_information, 1, wx.BOTTOM | wx.EXPAND, 2)
+
 		self._LBL_information = wx.StaticText(self, wx.ID_ANY, "")
-		__szr_main.Add(self._LBL_information, 0, wx.BOTTOM | wx.EXPAND, 2)
+		__szr_information.Add(self._LBL_information, 1, wx.EXPAND, 2)
+
+		self._LBL_info_tooltip = wx.StaticText(self, wx.ID_ANY, _(u" 🛈 "))
+		self._LBL_info_tooltip.SetForegroundColour(wx.Colour(0, 0, 255))
+		self._LBL_info_tooltip.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, 0, ""))
+		__szr_information.Add(self._LBL_info_tooltip, 0, 0, 0)
 
 		__sline_top = wx.StaticLine(self, wx.ID_ANY)
 		__szr_main.Add(__sline_top, 0, wx.BOTTOM | wx.EXPAND, 3)

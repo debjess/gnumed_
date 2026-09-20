@@ -60,33 +60,6 @@ Amitriptylin 0-0-5 for insomnia';
 comment on column clin.intake.narrative is
 	'concatenation of substance / amount / unit / schedule';
 
-
-drop function if exists clin.trf__clin_intake__set_narrative() cascade;
-
-create function clin.trf__clin_intake__set_narrative()
-	returns trigger
-	language plpgsql
-	as '
-DECLARE
-	_subst TEXT;
-BEGIN
-	SELECT description into _subst FROM ref.substance WHERE pk = NEW.fk_substance;
-	NEW.narrative :=_subst
-		|| coalesce('' '' || NEW.amount, '''')
-		|| coalesce(NEW.unit, '''')
-		|| coalesce('' ['' || NEW.schedule || '']'', '''')
-	;
-	RETURN NEW;
-END;';
-
-comment on function clin.trf__clin_intake__set_narrative() is
-	'sets clin.intake.narrative from other fields';
-
-create trigger tr__clin_intake__set_narrative
-	before insert or update on clin.intake
-	for each row
-	execute procedure clin.trf__clin_intake__set_narrative();
-
 -- --------------------------------------------------------------
 -- .soap_cat
 alter table clin.intake
@@ -177,28 +150,6 @@ alter table clin.intake
 	alter column start_is_unknown
 		set default false;
 
-
-drop function if exists clin.trf__start_is_unknown_minimizes_started() cascade;
-
-create or replace function clin.trf__start_is_unknown_minimizes_started()
-	returns trigger
-	language plpgsql
-	as '
-BEGIN
-	NEW.clin_when := ''-infinity''::timestamp with time zone;
-	RETURN NEW;
-END;';
-
-create trigger tr__start_is_unknown_minimizes_started
-	before insert or update on clin.intake
-	for each row
-	when (NEW.start_is_unknown is TRUE)
-	execute procedure clin.trf__start_is_unknown_minimizes_started()
-;
-
-comment on function clin.trf__start_is_unknown_minimizes_started() is
-	'When .start_is_unknown is true then .clin_when (used as .started) is set to -infinity.';
-
 -- --------------------------------------------------------------
 -- .comment_on_start
 comment on column clin.intake.comment_on_start is 'Comment (say, uncertainty level) on .clin_when.';
@@ -216,10 +167,13 @@ alter table clin.intake
 
 alter table clin.intake
 	add constraint clin_intake__sane_discontinued check (
+		(start_is_unknown IS TRUE)
+	or (
 		(discontinued is NULL)
 			or
 		(discontinued >= clin_when)
-	);
+	)
+);
 
 -- --------------------------------------------------------------
 -- .discontinue_reason
@@ -266,7 +220,51 @@ comment on column clin.intake.notes4pharmacies is
 
 -- --------------------------------------------------------------
 -- table level
+-- --------------------------------------------------------------
+drop function if exists clin.trf__adjust_incoming_intake_row() cascade;
 
+create or replace function clin.trf__adjust_incoming_intake_row()
+	returns trigger
+	language plpgsql
+	as '
+DECLARE
+	_subst TEXT;
+BEGIN
+	-- on medications:
+	IF NEW.use_type IS NULL THEN
+		-- set .clin_when (-> started) to minimum if start is unknown
+		IF NEW.start_is_unknown is TRUE THEN
+			NEW.clin_when := ''-infinity''::timestamp with time zone;
+		END IF;
+	-- on misuse entries:
+	ELSE
+		-- force .start_is_unknown to TRUE
+		NEW.start_is_unknown := TRUE;
+	END IF;
+	SELECT description into _subst FROM ref.substance WHERE pk = NEW.fk_substance;
+	NEW.narrative :=_subst
+		|| coalesce('' '' || NEW.amount, '''')
+		|| coalesce(NEW.unit, '''')
+		|| coalesce('' ['' || NEW.schedule || '']'', '''')
+	;
+	RETURN NEW;
+END;';
+
+create trigger tr__adjust_incoming_intake_row
+	before insert or update on clin.intake
+	for each row
+	execute procedure clin.trf__adjust_incoming_intake_row()
+;
+
+comment on function clin.trf__adjust_incoming_intake_row() is
+'Adjust incoming (INSERT/UPDATE) row data:
+.
+- on medications set start date to -infinity if start is unknown
+- on misuse entries force start_is_unknown to True
+- set narrative to computed description
+';
+
+-- --------------------------------------------------------------
 -- regimen must be all or nothing
 alter table clin.intake drop constraint if exists chk__sane_regimen_if_any cascade;
 alter table clin.intake
@@ -278,7 +276,7 @@ alter table clin.intake
 		)
 	);
 
-
+-- --------------------------------------------------------------
 -- if substance4patient has any regimen all rows of the substance for that patient must be regimen
 drop function if exists clin.trf__clin_intake__ensure_cross_regimen_integrity() cascade;
 
@@ -350,7 +348,7 @@ create constraint trigger tr__clin_intake__ensure_cross_regimen_integrity
 	for each row
 	execute procedure clin.trf__clin_intake__ensure_cross_regimen_integrity();
 
-
+-- --------------------------------------------------------------
 -- the combination of (substance, patient, regimen) must be unique
 drop index if exists clin.idx__clin_intake__uniq_regimen cascade;
 create index idx__clin_intake__uniq_regimen on clin.intake(fk_substance, amount, unit, schedule, clin.map_enc_or_epi_to_patient(fk_encounter, fk_episode));
