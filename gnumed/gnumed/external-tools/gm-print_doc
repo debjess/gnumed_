@@ -32,27 +32,6 @@ FILES="$@"			# this is / those are the file(s) to print
 # detect printer manager
 CALL_PRINTER_MANAGER=""
 
-# kprinter4 ?
-#if [ "${CALL_PRINTER_MANAGER}" = "" ]; then
-#	A=`which kprinter4`
-#	if [ $? = 0 ]; then
-#		A=`which pdf2ps`
-#		if [ $? = 0 ]; then
-#			OLD_CWD=`pwd`
-#			# convert PDF to PS
-#			PS_FILES=""
-#			for PDF_FILE in ${FILES} ; do
-#				PDF_DIR=`dirname ${PDF_FILE}`
-#				cd ${PDF_DIR}
-#				pdf2ps ${PDF_FILE} ${PDF_FILE}.ps
-#				PS_FILES="${PS_FILES} ${PDF_FILE}.ps"
-#			done
-#			cd ${OLD_CWD}
-#			CALL_PRINTER_MANAGER="kprinter4 -t GNUmed ${PS_FILES}"
-#		fi
-#	fi
-#fi
-
 # gtklp ?
 if [ "${CALL_PRINTER_MANAGER}" = "" ]; then
 	A=`which gtklp`
@@ -66,16 +45,13 @@ if [ "${CALL_PRINTER_MANAGER}" = "" ]; then
 	SYSTEM=`uname -s`
 	if [ ${SYSTEM} = "Darwin" ]; then
 		CALL_PRINTER_MANAGER="open -a Preview ${FILES}"
-		#CALL_PRINTER_MANAGER="open ${FILES}"
 	fi
 fi
 
 # generic badness ?
 if [ "${CALL_PRINTER_MANAGER}" = "" ]; then
-#	A=`which acroread`
 	A=`which okular`
 	if [ $? = 0 ]; then
-#		CALL_PRINTER_MANAGER="acroread ${FILES}"
 		CALL_PRINTER_MANAGER="okular --print-and-exit ${FILES}"
 	fi
 fi

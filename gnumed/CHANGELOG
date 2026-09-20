@@ -73,6 +73,7 @@ IMPROVED: forms: lab results printout
 IMPROVED: forms: current medications list
 IMPROVED: forms: invoice templates [thanks María]
 IMPROVED: patient search: speedup [thanks Marc]
+IMPROVED: printing: support evince next to okular
 
 FIX: CLI: --wxp= not needed anymore
 FIX: CLI: --ui= not needed anymore

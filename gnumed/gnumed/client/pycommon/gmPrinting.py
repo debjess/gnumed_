@@ -30,7 +30,8 @@ external_print_APIs = [
 	'gsprint',				# win
 	'acrobat_reader',		# win
 	'gtklp',				# Linux
-	'okular',				# Linux
+	'okular',				# Linux/KDE
+	'evince',				# Linux/GNOME
 	'Internet_Explorer',	# win
 	'Mac_Preview'			# MacOSX
 ]
@@ -81,6 +82,9 @@ def print_files(filenames:list=None, jobtype:str=None, print_api:str=None, verbo
 	if print_api == 'okular':
 		return _print_files_by_okular(filenames = filenames, verbose = verbose)
 
+	if print_api == 'evince':
+		return _print_files_by_evince(filenames = filenames, verbose = verbose)
+
 	if print_api == 'Internet_Explorer':
 		return _print_files_by_IE(filenames = filenames)
 
@@ -94,6 +98,8 @@ def print_files(filenames:list=None, jobtype:str=None, print_api:str=None, verbo
 
 	elif os.name == 'posix':
 		if _print_files_by_okular(filenames = filenames, verbose = verbose):
+			return True
+		if _print_files_by_evince(filenames = filenames, verbose = verbose):
 			return True
 		if _print_files_by_gtklp(filenames = filenames, verbose = verbose):
 			return True
@@ -192,6 +198,18 @@ def _print_files_by_okular(filenames=None, verbose=False):
 
 	_log.debug('attempting okular printing')
 	cmd_line = ['okular', '--print-and-exit']
+	cmd_line.extend(filenames)
+	success_state, returncode, stdout = gmShellAPI.run_process(cmd_line = cmd_line, verbose = verbose)
+	return success_state
+
+#-----------------------------------------------------------------------
+def _print_files_by_evince(filenames=None, verbose=False):
+	if sys.platform != 'linux':
+		_log.debug('<evince> only available under Linux')
+		return False
+
+	_log.debug('attempting evince printing')
+	cmd_line = ['evince']
 	cmd_line.extend(filenames)
 	success_state, returncode, stdout = gmShellAPI.run_process(cmd_line = cmd_line, verbose = verbose)
 	return success_state
